@@ -32,12 +32,13 @@ function actionSource(action: Action, origin: string) {
 export function generateTest(session: Pick<Session, 'actions' | 'startUrl'>) {
   const origin = new URL(session.startUrl).origin;
   const checkouts = session.actions.filter(action => action.type === 'click' && action.selector?.kind === 'testId' && action.selector.value === 'checkout');
-  if (checkouts.length !== 1) throw new Error('Record exactly one checkout attempt to generate a reproduction test.');
+  if (!checkouts.length) throw new Error('Record a checkout attempt to generate a reproduction test.');
   if (session.actions[0]?.type !== 'goto') throw new Error('The recording is missing its initial navigation.');
   const steps = session.actions.map((action, index) => {
     const source = actionSource(action, origin);
-    const checkout = action.id === checkouts[0].id;
-    const body = checkout ? `const [response] = await Promise.all([\n        page.waitForResponse(response => new URL(response.url()).pathname === ${quote(CHECKOUT_PATH)} && response.request().method() === 'POST'),\n        ${source.replace(/^await /, '').replace(/;$/, '')},\n      ]);\n      const body = await response.json().catch(() => null);\n      observed = { status: response.status(), code: body?.code ?? null };` : source;
+    const checkout = checkouts.some(item => item.id === action.id);
+    const settle = checkouts.length > 1 ? "\n      await expect(page.locator('main')).toHaveAttribute('data-checkout-state', /^(success|error)$/);" : '';
+    const body = checkout ? `const [response] = await Promise.all([\n        page.waitForResponse(response => new URL(response.url()).pathname === ${quote(CHECKOUT_PATH)} && response.request().method() === 'POST'),\n        ${source.replace(/^await /, '').replace(/;$/, '')},\n      ]);\n      const body = await response.json().catch(() => null);\n      observed = { status: response.status(), code: body?.code ?? null };${settle}` : source;
     return `    await test.step(${quote(`${index + 1}. ${action.label}`)}, async () => {\n      ${body}\n    });`;
   }).join('\n');
   return `import { test, expect } from '@playwright/test';

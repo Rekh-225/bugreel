@@ -84,3 +84,22 @@ test('a real selector failure produces REPLAY ERROR, never confirmation', async 
     await browser.close();
   }
 });
+
+test('recover saved recording and restore reproduction and Devin controls', async ({ page, request }) => {
+  const id = process.env.BUGREEL_RECOVER_SESSION;
+  test.skip(!id, 'Opt-in verification of an existing saved recording.');
+  test.setTimeout(90_000);
+  await page.goto(`/sessions/${id}`);
+  await expect(page.getByTestId('session-status')).toHaveText('captured');
+  if (await page.getByTestId('generate-report').count()) await page.getByTestId('generate-report').click();
+  await expect(page.getByTestId('generated-source')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hand off to a coding agent' })).toBeVisible();
+  await page.getByTestId('run-reproduction').click();
+  await expect(page.getByTestId('replay-status')).toHaveText('REPRODUCTION CONFIRMED', { timeout: 70_000 });
+  await expect(page.getByTestId('copy-agent-packet')).toBeEnabled();
+  await expect(page.getByTestId('send-to-devin')).toBeVisible();
+  const recovered: Session = await (await request.get(`/api/sessions/${id}`)).json();
+  expect(recovered.actions).toHaveLength(7);
+  expect(recovered.warnings).not.toContain('Record exactly one checkout attempt to generate a reproduction test.');
+  expect(recovered.latestRun?.sourceHash).toBe(recovered.generatedTest?.hash);
+});

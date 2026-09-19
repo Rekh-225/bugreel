@@ -19,6 +19,10 @@ export async function getSession(id: string) {
       saved.latestRun.status = 'error';
       saved.latestRun.message = 'The server restarted before replay completed.';
     }
+    if (saved.agentHandoff?.status === 'sending') {
+      saved.agentHandoff.status = 'uncertain';
+      saved.agentHandoff.message = 'The server restarted during submission. Check Devin before retrying; a session may have started.';
+    }
     state.sessions.set(id, saved);
   }
   return saved;

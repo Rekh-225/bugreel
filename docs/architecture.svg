@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000" role="img" aria-labelledby="diagram-title diagram-description">
+  <title id="diagram-title">BugReel system architecture</title>
+  <desc id="diagram-description">The local dashboard controls a Next.js Node server. A visible Chromium browser captures Demo Store interactions and diagnostic evidence. Normalization produces a report and a deterministic Playwright test. A separate test process executes the exact generated test in a fresh browser context and saves results locally. An optional consent-based handoff sends a reviewed text packet from the local backend to Devin API v3. Screenshots stay local.</desc>
+  <defs>
+    <marker id="mint-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#a9eac2" /></marker>
+    <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#778b81" /></marker>
+    <marker id="purple-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#c5b1ed" /></marker>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; }
+      .title { fill: #eff5f1; font-size: 22px; font-weight: 600; }
+      .body { fill: #b0bfb7; font-size: 15px; }
+      .small { fill: #84988b; font-size: 13px; }
+      .label { fill: #a9eac2; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; }
+      .card { fill: #151e1a; stroke: #36483e; stroke-width: 1.5; }
+      .cloud-card { fill: #211c2b; stroke: #5a4c70; stroke-width: 1.5; }
+      .edge { fill: none; stroke: #a9eac2; stroke-width: 2; stroke-linejoin: round; marker-end: url(#mint-arrow); }
+      .muted-edge { fill: none; stroke: #778b81; stroke-width: 2; stroke-linejoin: round; marker-end: url(#muted-arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="1000" fill="#0c1114" />
+  <rect x="48" y="34" width="34" height="34" rx="9" fill="#b5f3cb" />
+  <path d="M57 43h4v4h-4zm12 0h4v4h-4zm-12 12h4v4h-4zm12 0h4v4h-4zm-6-8 7 4-7 4Z" fill="#17291d" />
+  <text x="98" y="56" fill="#b5f3cb" font-size="14" font-weight="600" letter-spacing="2">BUGREEL / SYSTEM ARCHITECTURE</text>
+  <text x="48" y="106" fill="#eff5f1" font-size="34" font-weight="600" letter-spacing="-.8">One local app. Executable evidence.</text>
+  <text x="48" y="138" fill="#96a89c" font-size="17">Capture locally. Generate deterministically. Reproduce independently.</text>
+
+  <rect x="32" y="168" width="976" height="744" rx="16" fill="#101714" stroke="#364b3d" stroke-width="1.5" />
+  <text x="56" y="204" fill="#b5f3cb" font-size="13" font-weight="600" letter-spacing="1.6">ON YOUR MACHINE</text>
+  <text x="708" y="204" fill="#81998a" font-size="13">http://127.0.0.1:3000</text>
+  <rect x="1040" y="168" width="368" height="744" rx="16" fill="#16131e" stroke="#514364" stroke-width="1.5" stroke-dasharray="7 6" />
+  <text x="1064" y="204" fill="#c5b1ed" font-size="11" font-weight="600" letter-spacing="1.3">OPTIONAL / CONSENT REQUIRED</text>
+  <text x="1064" y="242" fill="#aa9fbc" font-size="14">The local demo needs no API key.</text>
+  <text x="1064" y="282" fill="#e5dcef" font-size="25" font-weight="600">Agent handoff</text>
+  <text x="1064" y="315" fill="#b2a7c3" font-size="16">Confirmed replay + reviewed packet.</text>
+  <text x="1064" y="340" fill="#b2a7c3" font-size="16">Screenshots remain local.</text>
+
+  <path d="M204 370V438" class="muted-edge" marker-start="url(#muted-arrow)" />
+  <text x="216" y="410" class="small">HTTP / polling</text>
+  <path d="M344 482H368V308H392" class="edge" />
+  <path d="M684 370V438" class="edge" />
+  <text x="697" y="409" class="small">events + diagnostics</text>
+  <path d="M344 548H392" class="edge" />
+  <path d="M525 580V646" class="edge" />
+  <text x="539" y="619" class="small">exact generated test</text>
+  <path d="M344 638H368V705H392" class="muted-edge" />
+  <path d="M658 705H704" class="edge" />
+  <path d="M204 694V776" class="muted-edge" marker-start="url(#muted-arrow)" />
+  <text x="216" y="741" class="small">persist / load</text>
+  <path d="M840 764V834H344" class="muted-edge" />
+  <text x="430" y="817" class="small">result JSON + replay screenshot</text>
+  <path d="M976 510H1064" fill="none" stroke="#c5b1ed" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#purple-arrow)" />
+  <text x="988" y="492" fill="#c5b1ed" font-size="12">opt-in</text>
+  <path d="M1224 582V646" fill="none" stroke="#c5b1ed" stroke-width="2" marker-end="url(#purple-arrow)" />
+  <text x="1237" y="619" fill="#a899bc" font-size="12">new session</text>
+
+  <rect x="64" y="244" width="280" height="126" rx="10" class="card" />
+  <text x="84" y="278" class="title">Dashboard</text>
+  <text x="84" y="305" class="body">Start / stop recording</text>
+  <text x="84" y="328" class="body">Inspect evidence, test, result</text>
+  <text x="84" y="351" class="body">Optional agent handoff</text>
+
+  <rect x="392" y="244" width="584" height="126" rx="10" class="card" />
+  <text x="414" y="270" class="label">01 / CAPTURE</text>
+  <text x="414" y="300" class="title">Controlled recording browser</text>
+  <text x="414" y="326" class="body">Visible Chromium · bundled Demo Store</text>
+  <text x="414" y="350" class="body">Actions · navigation · console · network · screenshot</text>
+
+  <rect x="64" y="438" width="280" height="256" rx="10" class="card" />
+  <text x="84" y="466" class="label">LOCAL NODE.JS PROCESS</text>
+  <text x="84" y="500" class="title">Next.js API</text>
+  <text x="84" y="530" fill="#cbd9d0" font-size="17">Session manager</text>
+  <text x="84" y="560" class="body">Owns browser lifecycle</text>
+  <text x="84" y="586" class="body">Coordinates report generation</text>
+  <text x="84" y="612" class="body">Serializes browser tasks</text>
+  <text x="84" y="638" class="body">Spawns the test CLI</text>
+  <text x="84" y="674" class="small">/api/sessions/*</text>
+
+  <rect x="392" y="438" width="584" height="142" rx="10" class="card" />
+  <text x="414" y="466" class="label">02 / EVIDENCE</text>
+  <text x="414" y="496" class="title">Normalize + generate</text>
+  <text x="414" y="523" class="body">Readable report + deterministic Playwright test</text>
+  <text x="414" y="546" class="body">Stable selectors · failure assertions · exact-source checks</text>
+  <text x="414" y="566" class="small">No LLM in the capture or generation path.</text>
+
+  <rect x="392" y="646" width="266" height="118" rx="10" class="card" />
+  <text x="414" y="672" class="label">03 / REPRODUCE</text>
+  <text x="414" y="701" fill="#eff5f1" font-size="19" font-weight="600">Playwright Test CLI</text>
+  <text x="414" y="728" font-size="14" fill="#b0bfb7">Separate process · one worker</text>
+  <text x="414" y="750" font-size="14" fill="#b0bfb7">No retries · bounded execution</text>
+
+  <rect x="704" y="646" width="272" height="118" rx="10" class="card" />
+  <text x="726" y="672" class="label">ISOLATED REPLAY</text>
+  <text x="726" y="701" fill="#eff5f1" font-size="19" font-weight="600">Fresh browser context</text>
+  <text x="726" y="728" font-size="14" fill="#b0bfb7">Recorded sequence runs again</text>
+  <text x="726" y="750" font-size="14" fill="#b0bfb7">HTTP + code + visible error</text>
+
+  <rect x="64" y="776" width="280" height="108" rx="10" class="card" />
+  <text x="84" y="808" fill="#d3e9db" font-size="20" font-weight="600">.bugreel/</text>
+  <text x="84" y="835" font-size="14" fill="#b0bfb7">Session JSON · test source · PNGs</text>
+  <text x="84" y="860" class="small">Completed sessions persist locally.</text>
+
+  <rect x="1064" y="440" width="320" height="142" rx="10" class="cloud-card" />
+  <text x="1084" y="475" fill="#eee5fa" font-size="22" font-weight="600">Devin API v3</text>
+  <text x="1084" y="504" fill="#bdb0ce" font-size="15">Called by the local Node backend</text>
+  <text x="1084" y="529" fill="#bdb0ce" font-size="15">Server-side credentials + ACU limit</text>
+  <text x="1084" y="554" fill="#bdb0ce" font-size="14">Returns a session ID and link</text>
+
+  <rect x="1064" y="646" width="320" height="118" rx="10" class="cloud-card" />
+  <text x="1084" y="680" fill="#eee5fa" font-size="20" font-weight="600">Agent investigation</text>
+  <text x="1084" y="708" fill="#bdb0ce" font-size="14">New fix branch · human review</text>
+  <text x="1084" y="732" fill="#bdb0ce" font-size="14">Prompt requests no merge or deploy</text>
+  <text x="1064" y="816" fill="#aa9fbc" font-size="15">Creating a session does not prove</text>
+  <text x="1064" y="841" fill="#aa9fbc" font-size="15">a fix. Verify healthy behavior.</text>
+
+  <circle cx="54" cy="954" r="4" fill="#b5f3cb" />
+  <text x="70" y="959" fill="#96a89c" font-size="14">Displayed test = executed test. A successful reproduction does not mean the application is fixed.</text>
+</svg>

@@ -2,7 +2,7 @@
 
 ## Runtime and scope
 
-Local-only Next.js application on http://127.0.0.1:3000. Node 22 and npm are available on the development machine. Recording launches a visible Playwright Chromium browser. Keep the application on port 3000; the target and control-origin checks intentionally use that fixed origin. Do not add arbitrary target URLs, cloud deployment, authentication, or external integrations to this MVP.
+Local-only Next.js application on http://127.0.0.1:3000. Node 22 and npm are available on the development machine. Recording launches a visible Playwright Chromium browser. Keep the application on port 3000; the target and control-origin checks intentionally use that fixed origin. Do not add arbitrary target URLs, cloud deployment, or authentication to this MVP. The explicitly approved exception to local-only processing is an optional, consent-based Devin handoff; recording and reproduction remain local.
 
 ## Commands
 
@@ -36,3 +36,15 @@ Set `BUGREEL_TEST_PRODUCTION=1` when running tests to have Playwright start the 
 Completed reports and generated artifacts are saved under gitignored `.bugreel/`. Never commit captured data. Active browser handles live in a process-global server-side manager. One recording or replay runs at a time. Finalized sessions survive server restarts.
 
 The test suite covers healthy/failing checkout, normalization, code generation and real CLI execution, diagnostic capture, complete positive/negative UI workflows, actual selector-error replay, and responsive/visual checks. Demo Store controls use stable data-testid selectors. Keep those selectors intact when polishing the interface.
+
+## Optional agent handoff
+
+Reports with generated tests provide a deterministic Markdown agent packet for copy/download. The packet includes the exact test and current repository context, but not screenshot image bytes, local uncommitted changes, or API credentials. It explicitly distinguishes the commit at handoff time from the unrecorded commit at capture time.
+
+One-click Send to Devin uses the official v3 session API. To enable it, the user must configure `DEVIN_API_KEY` (a service-user API key) and `DEVIN_ORG_ID` in the server environment or an untracked `.env.local`, then restart the server. Optional `DEVIN_MAX_ACU_LIMIT` defaults to 10 and must be an integer between 1 and 100. Never use NEXT_PUBLIC variables for these credentials, commit them, or ask the user to paste them in chat. No credentials are required for copying/downloading the packet.
+
+Sending requires a confirmed reproduction, explicit per-submission consent, the exact reviewed packet hash, and the displayed ACU limit. A sent/pending/uncertain submission must not be automatically retried. A timeout can mean a cloud session already exists. Requests are serialized with local browser tasks to protect persisted session state.
+
+The agent must work on a separate experimental fix branch and must not merge or change main: the Demo Store bug is intentional and must remain available for presentations. A correct fix also needs a healthy-checkout test; a failure-signature mismatch by itself does not prove correctness.
+
+Handoff tests use fake credentials and mocked transports/browser routes. They do not create real Devin sessions. Live API verification requires separate user approval to send evidence and consume account credits.

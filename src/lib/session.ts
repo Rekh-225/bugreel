@@ -15,6 +15,7 @@ export type Screenshot = { id: string; name: string; reason: 'failure' | 'stoppe
 export type Failure = { code: string; message: string; method: string; pathname: string; status: number; networkId: string; visible: boolean };
 export type RunStatus = 'running' | 'confirmed' | 'not_reproduced' | 'error';
 export type ReplayRun = { id: string; status: RunStatus; startedAt: string; finishedAt?: string; message: string; sourceHash: string; screenshot?: string; durationMs?: number; output?: string };
+export type AgentHandoff = { status: 'sending' | 'sent' | 'error' | 'uncertain'; createdAt: string; packetHash: string; maxAcuLimit: number; message: string; sessionId?: string; url?: string };
 export type Session = {
   id: string; startedAt: string; stoppedAt?: string; startUrl: string;
   status: 'starting' | 'recording' | 'stopping' | 'captured' | 'interrupted' | 'error';
@@ -23,4 +24,5 @@ export type Session = {
   report?: { title: string; expected: string; actual: string };
   generatedTest?: { source: string; hash: string; version: number };
   latestRun?: ReplayRun;
+  agentHandoff?: AgentHandoff;
 };

@@ -38,6 +38,13 @@ for (const failing of [true, false]) test(`complete UI workflow: ${failing ? 'SA
     expect(completed.latestRun?.sourceHash).toBe(session.generatedTest?.hash);
     expect(completed.latestRun?.screenshot).toBeTruthy();
     expect(completed.latestRun?.status).toBe(failing ? 'confirmed' : 'not_reproduced');
+    const packetResponse = await request.get(`/api/sessions/${id}/handoff`);
+    expect(packetResponse.ok()).toBe(true);
+    const packet = await packetResponse.json();
+    expect(packet.packet).toContain(session.generatedTest!.source.trimEnd());
+    expect(packet.packet).toContain('https://github.com/Rekh-225/bugreel');
+    expect(packet).not.toHaveProperty('apiKey');
+    expect((await request.post(`/api/sessions/${id}/handoff`, { headers: { origin: 'http://127.0.0.1:3000' }, data: { confirm: false, packetHash: packet.hash, maxAcuLimit: packet.maxAcuLimit } })).status()).toBe(400);
     await page.reload();
     await expect(page.getByTestId('replay-status')).toHaveText(failing ? 'REPRODUCTION CONFIRMED' : 'NOT REPRODUCED');
     expect(dashboardErrors).toEqual([]);

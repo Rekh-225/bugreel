@@ -13,7 +13,7 @@ Local-only Next.js application on http://127.0.0.1:3000. Node 22 and npm are ava
 - Production build: `npm run build`
 - Presentation server: `npm run start`
 - Verification: `npm test`
-- Visual snapshots: `npm test -- tests/ui.spec.ts --update-snapshots` after reviewing intentional UI changes. Current baselines are Windows-specific.
+- Visual snapshots: `npm test -- tests/ui.spec.ts --update-snapshots` after reviewing intentional UI changes. Current pixel baselines are Windows-specific and are compared only on Windows. Functional UI and responsive checks still run on every platform.
 
 Playwright's main test configuration starts the app with the test-only local CDP port 9333. Stop a normal development/presentation server before running the full suite so the test runner can start its own test-enabled server. If reusing a server, it must have `BUGREEL_TEST_CDP_PORT=9333`. This lets workflow tests drive the actual separate recording browser through the dashboard. Do not enable that port for the final presentation server.
 

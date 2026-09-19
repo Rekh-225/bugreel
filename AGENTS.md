@@ -48,3 +48,7 @@ Sending requires a confirmed reproduction, explicit per-submission consent, the 
 The agent must work on a separate experimental fix branch and must not merge or change main: the Demo Store bug is intentional and must remain available for presentations. A correct fix also needs a healthy-checkout test; a failure-signature mismatch by itself does not prove correctness.
 
 Handoff tests use fake credentials and mocked transports/browser routes. They do not create real Devin sessions. Live API verification requires separate user approval to send evidence and consume account credits.
+
+## README artwork
+
+The README architecture image is `docs/architecture.png`, rendered from the editable `docs/architecture.svg`. Keep both in sync. Use the local HTML wrapper `docs/architecture-preview.html` with Playwright's screenshot CLI, a 1440x1000 viewport, and a bounded timeout when regenerating the PNG. Do not publish private `.bugreel/` session artifacts as documentation assets.

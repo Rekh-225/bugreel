@@ -5,6 +5,13 @@
   <p>Turn a browser bug reproduction into diagnostic evidence, an executable Playwright test, and an actionable agent handoff.</p>
   <p><strong>Local-first</strong> · <strong>Deterministic generation</strong> · <strong>Verified reproduction</strong> · <strong>Optional Devin integration</strong></p>
   <p>
+    <a href="https://github.com/Rekh-225/bugreel/actions/workflows/ci.yml"><img src="https://github.com/Rekh-225/bugreel/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js&logoColor=white" alt="Node.js 22" />
+    <img src="https://img.shields.io/badge/Playwright-1.63-2EAD33?logo=playwright&logoColor=white" alt="Playwright 1.63" />
+    <img src="https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white" alt="Next.js 16" />
+  </p>
+  <p>
     <a href="#quick-start">Quick start</a> ·
     <a href="#demo-walkthrough">Demo</a> ·
     <a href="#architecture">Architecture</a> ·
@@ -28,6 +35,16 @@ BugReel captures that context while a person reproduces the problem, then checks
 | Capture | Evidence | Reproduce | Hand off |
 | --- | --- | --- | --- |
 | Record real interactions in a controlled browser. | Preserve steps, console errors, network failures, and a screenshot. | Generate and execute the exact Playwright test shown in the report. | Copy an agent-ready packet or explicitly start a Devin session. |
+
+## Design principles
+
+| Principle | How BugReel applies it |
+| --- | --- |
+| **Human in the loop** | A person reproduces the bug in a real, visible browser. BugReel captures evidence; it never guesses what happened. |
+| **Deterministic by design** | Report and test generation are template-based. No LLM sits between the recording and the executable test, so the same recording always produces the same test. |
+| **Verify before you hand off** | The generated test is hash-checked and re-executed in a fresh browser. A coding agent only receives a failure that was independently confirmed. |
+| **Honest outcomes** | Three distinct results: REPRODUCTION CONFIRMED, NOT REPRODUCED, REPLAY ERROR. A selector timeout or browser crash is never reported as a confirmed bug. |
+| **Safe by default** | Local-only storage, explicit per-submission consent, a visible ACU spend limit, and no automatic retries for the optional Devin handoff. |
 
 ## Quick start
 
@@ -239,6 +256,8 @@ Devin API tests use mocked transports or browser routes and do not create paid c
 
 For additional verification commands and test-environment details, see [AGENTS.md](AGENTS.md).
 
+Continuous integration runs the same typecheck, production build, and full Playwright suite on every push to `main` (see [.github/workflows/ci.yml](.github/workflows/ci.yml)). Recording and replay browsers run headed under Xvfb on the Linux runner.
+
 ## Repository structure
 
 ```text
@@ -290,7 +309,7 @@ Deploying the Next.js UI to a serverless host does **not** turn the current appl
 
 ## Built with Devin
 
-BugReel was developed with Devin Desktop during the hackathon. The project owner defined the product concept, demonstration scenario, scope, priorities, and acceptance criteria, and manually validated the experience. Devin implemented the application, browser instrumentation, evidence pipeline, deterministic generator, replay runner, UI, and automated verification.
+BugReel was built with Devin Desktop during the Cognition Devin hackathon. The project owner defined the product concept, demonstration scenario, scope, priorities, and acceptance criteria, and manually validated the experience. Devin implemented the application, browser instrumentation, evidence pipeline, deterministic generator, replay runner, UI, and automated verification.
 
 The optional cloud handoff is a separate product feature: it supplies a coding agent with reproducible evidence rather than asking an LLM to invent the recording or the test.
 

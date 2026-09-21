@@ -52,3 +52,7 @@ Handoff tests use fake credentials and mocked transports/browser routes. They do
 ## README artwork
 
 The README architecture image is `docs/architecture.png`, rendered from the editable `docs/architecture.svg`. Keep both in sync. Use the local HTML wrapper `docs/architecture-preview.html` with Playwright's screenshot CLI, a 1440x1000 viewport, and a bounded timeout when regenerating the PNG. Do not publish private `.bugreel/` session artifacts as documentation assets.
+
+## Continuous integration
+
+The GitHub Actions workflow at `.github/workflows/ci.yml` runs `npm run typecheck`, `npm run build`, and `BUGREEL_TEST_PRODUCTION=1 npm test` under `xvfb-run` on ubuntu-latest, so recording and replay browsers run headed. Pixel snapshot comparisons are skipped there because the committed baselines are Windows-only; functional UI and responsive checks still run. On failure, artifacts from `test-results/` (and `playwright-report/` if present) are uploaded for 7 days.

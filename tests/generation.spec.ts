@@ -26,6 +26,26 @@ test('missing checkout and external navigation cannot generate a runnable scenar
   expect(() => generateTest({ actions: [{ ...actions[0], url: 'https://example.com' }, ...actions.slice(1)], startUrl: 'http://127.0.0.1:3000/demo-store' })).toThrow('Only local');
 });
 
+const localActions: Action[] = [
+  { id: 'open', type: 'goto', url: 'http://127.0.0.1:4173/', label: 'Open app', timestamp: '', elapsedMs: 0 },
+  { id: 'pay-click', type: 'click', label: 'Pay invoice', selector: { kind: 'testId', value: 'pay', confidence: 'stable' }, timestamp: '', elapsedMs: 0 },
+];
+const localSession = {
+  target: 'local' as const, startUrl: 'http://127.0.0.1:4173/', actions: localActions,
+  failure: { code: 'PAYMENT_DOWN', message: 'x', method: 'POST', pathname: '/api/pay', status: 503, networkId: 'n', visible: false, triggerActionId: 'pay-click' },
+};
+
+test('local target generation asserts the captured HTTP signature without Demo Store selectors', () => {
+  const source = generateTest(localSession);
+  for (const expected of ['"/api/pay"', '"POST"', 'observed?.status === 503', '"PAYMENT_DOWN"', 'BUGREEL_SIGNATURE_MISMATCH']) expect(source).toContain(expected);
+  expect(source).not.toContain('checkout-error');
+  expect(source).not.toContain('data-checkout-state');
+});
+
+test('a local recording without a failure cannot generate a test', () => {
+  expect(() => generateTest({ ...localSession, failure: undefined })).toThrow('Record a failing request');
+});
+
 for (const sequence of [actions, repeatedActions]) test(`the generated ${sequence.length}-action test is executable by the actual Playwright CLI`, async () => {
   test.setTimeout(70_000);
   const directory = path.resolve('.bugreel', 'generation-verification', crypto.randomUUID());

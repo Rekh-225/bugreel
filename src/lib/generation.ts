@@ -19,7 +19,7 @@ export function locatorSource(selector: Selector) {
 
 function actionSource(action: Action, origin: string) {
   if (action.type === 'goto' || action.type === 'waitForURL') {
-    if (!action.url || new URL(action.url).origin !== origin) throw new Error('Only local Demo Store navigation can be generated.');
+    if (!action.url || new URL(action.url).origin !== origin) throw new Error('Only local navigation within the recorded origin can be generated.');
     return action.type === 'goto' ? `await page.goto(${quote(action.url)});` : `await expect(page).toHaveURL(${quote(action.url)});`;
   }
   if (!action.selector) throw new Error('A recorded action has no reliable selector.');
@@ -29,8 +29,9 @@ function actionSource(action: Action, origin: string) {
   return `await ${locator}.click();`;
 }
 
-export function generateTest(session: Pick<Session, 'actions' | 'startUrl'>) {
+export function generateTest(session: Pick<Session, 'actions' | 'startUrl'> & Partial<Pick<Session, 'target' | 'failure'>>) {
   const origin = new URL(session.startUrl).origin;
+  if ((session.target ?? 'demo') === 'local') return generateLocalTest(session, origin);
   const checkouts = session.actions.filter(action => action.type === 'click' && action.selector?.kind === 'testId' && action.selector.value === 'checkout');
   if (!checkouts.length) throw new Error('Record a checkout attempt to generate a reproduction test.');
   if (session.actions[0]?.type !== 'goto') throw new Error('The recording is missing its initial navigation.');
@@ -70,7 +71,55 @@ ${steps}
 `;
 }
 
+function generateLocalTest(session: Pick<Session, 'actions' | 'startUrl'> & Partial<Pick<Session, 'failure'>>, origin: string) {
+  const failure = session.failure;
+  if (!failure) throw new Error('Record a failing request (HTTP 5xx) to generate a reproduction test.');
+  if (session.actions[0]?.type !== 'goto') throw new Error('The recording is missing its initial navigation.');
+  const trigger = session.actions.find(action => action.id === failure.triggerActionId) ?? [...session.actions].reverse().find(action => action.type === 'click' || action.type === 'press');
+  if (!trigger) throw new Error('Record the interaction that triggers the failing request.');
+  const steps = session.actions.map((action, index) => {
+    const source = actionSource(action, origin);
+    const body = action.id === trigger.id ? `const [response] = await Promise.all([\n        page.waitForResponse(response => new URL(response.url()).pathname === ${quote(failure.pathname)} && response.request().method() === ${quote(failure.method)}),\n        ${source.replace(/^await /, '').replace(/;$/, '')},\n      ]);\n      const body = await response.json().catch(() => null);\n      observed = { status: response.status(), code: (typeof body?.code === 'string' && body.code) || (typeof body?.error === 'string' && body.error) || \`HTTP_\${response.status()}\` };` : source;
+    return `    await test.step(${quote(`${index + 1}. ${action.label}`)}, async () => {\n      ${body}\n    });`;
+  }).join('\n');
+  return `import { test, expect } from '@playwright/test';
+
+test('reproduces HTTP ${failure.status} from ${failure.method} ${failure.pathname} using recorded actions', async ({ page }, testInfo) => {
+  let observed: { status: number; code: string | null } | undefined;
+  try {
+${steps}
+    await test.step('Verify the captured failure signature', async () => {
+      const matches = observed?.status === ${failure.status} && observed?.code === ${quote(failure.code)};
+      await testInfo.attach('bugreel-evidence', {
+        body: Buffer.from(JSON.stringify({ completed: true, matches, observed, visible: false, expectedCode: ${quote(failure.code)} })),
+        contentType: 'application/json',
+      });
+      expect(matches, 'BUGREEL_SIGNATURE_MISMATCH').toBe(true);
+    });
+  } finally {
+    if (!page.isClosed()) {
+      const screenshot = testInfo.outputPath('replay.png');
+      await page.screenshot({ path: screenshot, fullPage: true, animations: 'disabled' });
+      await testInfo.attach('replay-screenshot', { path: screenshot, contentType: 'image/png' });
+    }
+  }
+});
+`;
+}
+
 export function generateReport(session: Session) {
+  if (session.target === 'local') {
+    const start = new URL(session.startUrl);
+    return session.failure ? {
+      title: `${session.failure.method} ${session.failure.pathname} returned HTTP ${session.failure.status}`,
+      expected: 'The recorded actions should complete without a server error.',
+      actual: `${session.failure.method} ${session.failure.pathname} returned ${session.failure.status} (${session.failure.code}) while performing the recorded actions. The failure response was captured.`,
+    } : {
+      title: `Recording of ${start.host}${start.pathname}`,
+      expected: 'The recorded actions should complete without a server error.',
+      actual: 'No HTTP 5xx response was observed in this recording, so no reproduction test can be generated.',
+    };
+  }
   return session.failure ? {
     title: 'Checkout fails after applying SAVE20',
     expected: 'An applied discount should reduce the total without preventing checkout.',

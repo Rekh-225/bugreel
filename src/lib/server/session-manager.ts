@@ -31,7 +31,7 @@ export async function listSessions() {
   const ids = new Set([...await savedSessionIds(), ...state.sessions.keys()]);
   const sessions = (await Promise.all([...ids].map(getSession))).filter((s): s is Session => !!s);
   return sessions.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 12).map(session => ({
-    id: session.id, startedAt: session.startedAt, status: session.status, title: session.report?.title || 'Demo Store recording',
+    id: session.id, startedAt: session.startedAt, status: session.status, title: session.report?.title || (session.target === 'local' ? 'Local app recording' : 'Demo Store recording'),
     actionCount: session.actions.length, failure: !!session.failure, runStatus: session.latestRun?.status,
   }));
 }

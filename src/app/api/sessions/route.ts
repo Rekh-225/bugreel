@@ -5,4 +5,4 @@ import { startRecording } from '@/lib/server/recorder';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET() { return api(listSessions); }
-export async function POST(request: Request) { return api(async () => { requireControl(request); return startRecording(); }, 201); }
+export async function POST(request: Request) { return api(async () => { requireControl(request); const body = await request.json().catch(() => null); return startRecording(typeof body?.targetUrl === 'string' ? body.targetUrl : undefined); }, 201); }

@@ -108,6 +108,17 @@ The bundled Demo Store contains one product and a deliberately reproducible chec
 
 The failure is part of the demonstration fixture, not an accidental startup error. Recorded checkout retries are preserved in the generated scenario; reproduction assertions evaluate the final checkout outcome.
 
+### Record your own local app (experimental)
+
+Enter a `http://localhost:<port>` or `http://127.0.0.1:<port>` URL in the **Bring your own local app** panel on the dashboard. BugReel records it exactly like the Demo Store and treats the **first HTTP 5xx response** as the failure signature. The generated test replays the recorded actions and asserts that status and error code.
+
+Limitations:
+
+- Single tab and same-origin only — cross-origin requests are blocked during recording.
+- Interactions need stable `data-testid`, `id`, label, placeholder, or unique button text to be replayable.
+- No visible-error assertion outside the Demo Store; confirmation is signature-based only.
+- The target must be running before recording and before replay.
+
 ## Understanding the result
 
 | Outcome | What it means |
@@ -304,7 +315,7 @@ For environments where only visible **replay** is unavailable, set `BUGREEL_REPL
 
 This MVP is deliberately narrow:
 
-- Supported target: the bundled, single-tab Demo Store.
+- Supported targets: the bundled Demo Store (default) and, experimentally, other single-tab apps served from a loopback http origin.
 - Local desktop execution, not a browser extension or packaged desktop installer.
 - No arbitrary external website recording, multi-user accounts, hosted recording service, or automatic merging of fixes.
 - No video/session playback engine; evidence consists of structured events, diagnostics, and screenshots.

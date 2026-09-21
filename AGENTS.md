@@ -2,7 +2,7 @@
 
 ## Runtime and scope
 
-Local-only Next.js application on http://127.0.0.1:3000. Node 22 and npm are available on the development machine. Recording launches a visible Playwright Chromium browser. Keep the application on port 3000; the target and control-origin checks intentionally use that fixed origin. Do not add arbitrary target URLs, cloud deployment, or authentication to this MVP. The explicitly approved exception to local-only processing is an optional, consent-based Devin handoff; recording and reproduction remain local.
+Local-only Next.js application on http://127.0.0.1:3000. Node 22 and npm are available on the development machine. Recording launches a visible Playwright Chromium browser. Keep the application on port 3000; the target and control-origin checks intentionally use that fixed origin. Recording targets are restricted to loopback http origins (127.0.0.1/localhost); the Demo Store remains the default and the presentation path. Do not add remote targets, cloud deployment, or authentication to this MVP. The explicitly approved exception to local-only processing is an optional, consent-based Devin handoff; recording and reproduction remain local.
 
 ## Commands
 
@@ -30,6 +30,7 @@ Set `BUGREEL_TEST_PRODUCTION=1` when running tests to have Playwright start the 
 - NOT REPRODUCED requires a completed scenario whose only test failure is the explicit signature mismatch assertion.
 - Browser, selector, timeout, worker, or infrastructure failures are REPLAY ERROR, never confirmation.
 - The generated test characterizes the existing failure; a passing reproduction test does not mean the application bug is fixed.
+- Local (non-Demo Store) targets: the first HTTP 5xx response during recording is the failure signature; confirmation requires the replay to observe the same status and code from the same method and path. Visible-error evidence is required only for the Demo Store.
 
 ## Storage and testing
 

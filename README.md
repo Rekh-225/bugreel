@@ -22,7 +22,9 @@
 
 > **Local developer tool — no hosted URL.** The complete MVP runs on a desktop with Node.js and Playwright. No account, database, or API key is required for recording and reproduction.
 
-![BugReel landing interface with the product workflow and a clearly labeled example report](tests/ui.spec.ts-snapshots/landing-hero-win32.png)
+![BugReel demo: record the Demo Store failure, generate the Playwright test, and confirm the reproduction in a fresh browser](docs/demo.gif)
+
+<p align="center"><a href="docs/demo.mp4">Watch the full-quality video</a> · Recorded automatically by <code>npm run demo:record</code></p>
 
 ## Why BugReel?
 
@@ -81,6 +83,8 @@ Interactive recording still requires a graphical desktop. A headless server alon
 For development, use `npm run dev` instead of the build/start commands. Do not run a second server on the same port.
 
 ## Demo walkthrough
+
+![BugReel landing interface with the product workflow and a clearly labeled example report](tests/ui.spec.ts-snapshots/landing-hero-win32.png)
 
 The bundled Demo Store contains one product and a deliberately reproducible checkout bug. There are no real orders, purchases, or payments.
 

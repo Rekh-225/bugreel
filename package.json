@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test": "playwright test"
+    "test": "playwright test",
+    "demo:record": "playwright test --config scripts/demo/playwright.config.ts",
+    "demo:encode": "node scripts/demo/encode.mjs"
   },
   "dependencies": {
     "@playwright/test": "1.63.0",

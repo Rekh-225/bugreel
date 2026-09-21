@@ -328,6 +328,10 @@ BugReel was built with Devin Desktop during the Cognition Devin hackathon. The p
 
 The optional cloud handoff is a separate product feature: it supplies a coding agent with reproducible evidence rather than asking an LLM to invent the recording or the test.
 
+## License
+
+[MIT](LICENSE) © 2026 Rehan Khaliq
+
 ---
 
 **Less back-and-forth. More fixing.**

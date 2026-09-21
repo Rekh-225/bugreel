@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { generateTest, sourceHash } from '../generation';
-import { classifyReplay, reportResults, type Proof, type RunnerReport } from '../replay-result';
+import { classifyReplay, expectedSignature, reportResults, type Proof, type RunnerReport } from '../replay-result';
 import type { ReplayRun, Session } from '../session';
 import { saveSession, sessionDirectory } from './artifacts';
 import { ApiError } from './http';
@@ -12,7 +12,7 @@ import { state } from './session-manager';
 
 export async function startReplay(session: Session) {
   if (state.busy) throw new ApiError('Another recording or reproduction is already running.', 409);
-  if (session.status !== 'captured' || !session.generatedTest) throw new ApiError('Finish a valid checkout recording before running reproduction.');
+  if (session.status !== 'captured' || !session.generatedTest) throw new ApiError('Finish a captured recording with a generated test before running reproduction.');
   const directory = sessionDirectory(session.id);
   const source = await fs.readFile(path.join(directory, 'reproduction.spec.ts'), 'utf8');
   if (source !== session.generatedTest.source || sourceHash(source) !== session.generatedTest.hash || source !== generateTest(session)) throw new ApiError('The saved test no longer matches the generated, displayed source. Record a new session.', 409);
@@ -62,7 +62,7 @@ async function execute(session: Session, run: ReplayRun, directory: string) {
       return file;
     };
     const proof: Proof | undefined = attachment?.body ? JSON.parse(Buffer.from(attachment.body, 'base64').toString('utf8')) : attachment?.path ? JSON.parse(await fs.readFile(safeAttachmentPath(attachment.path), 'utf8')) : undefined;
-    Object.assign(run, classifyReplay(report, exitCode, proof));
+    Object.assign(run, classifyReplay(report, exitCode, proof, expectedSignature(session)));
     const screenshot = result?.attachments?.find(item => item.name === 'replay-screenshot');
     if (screenshot?.path) {
       run.screenshot = `replay-${run.id}.png`;

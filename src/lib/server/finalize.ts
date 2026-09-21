@@ -11,7 +11,7 @@ export async function finalizeSession(session: Session) {
       const source = generateTest(session);
       await fs.writeFile(path.join(sessionDirectory(session.id), 'reproduction.spec.ts'), source);
       session.generatedTest = { source, hash: sourceHash(source), version: 1 };
-      session.warnings = session.warnings.filter(message => !['Record exactly one checkout attempt to generate a reproduction test.', 'Record a checkout attempt to generate a reproduction test.'].includes(message));
+      session.warnings = session.warnings.filter(message => !['Record exactly one checkout attempt to generate a reproduction test.', 'Record a checkout attempt to generate a reproduction test.', 'Record a failing request (HTTP 5xx) to generate a reproduction test.', 'Record the interaction that triggers the failing request.'].includes(message));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Test generation could not complete.';
       if (!session.warnings.includes(message)) session.warnings.push(message);

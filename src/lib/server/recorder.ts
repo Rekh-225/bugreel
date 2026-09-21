@@ -5,13 +5,16 @@ import { CHECKOUT_PATH, FAILURE_CODE, FAILURE_MESSAGE } from '../demo';
 import type { RecordedEvent, Session } from '../session';
 import { normalizeEvents } from '../recorder/normalize';
 import { saveSession, sessionDirectory } from './artifacts';
-import { APP_ORIGIN, state } from './session-manager';
+import { state } from './session-manager';
+import { resolveTarget } from './target';
 import { ApiError } from './http';
 
-export async function startRecording() {
+export async function startRecording(targetUrl?: string) {
+  const { url, target } = resolveTarget(targetUrl);
   if (state.busy) throw new ApiError('A browser task is already running. Stop the current recording or wait for replay.', 409);
+  const targetOrigin = new URL(url).origin;
   const session: Session = {
-    id: randomUUID(), startedAt: new Date().toISOString(), startUrl: `${APP_ORIGIN}/demo-store`, status: 'starting',
+    id: randomUUID(), startedAt: new Date().toISOString(), startUrl: url, status: 'starting', target,
     events: [], actions: [], consoleErrors: [], networkErrors: [], screenshots: [], warnings: [],
   };
   state.busy = session.id;
@@ -39,10 +42,10 @@ export async function startRecording() {
       session.events.push({ ...event, id: randomUUID(), sequence: session.events.length, elapsedMs: Math.max(0, Date.parse(event.timestamp) - Date.parse(session.startedAt)) });
       session.actions = normalizeEvents(session.events);
     }
-    await context.route('**/*', route => new URL(route.request().url()).origin === APP_ORIGIN ? route.continue() : route.abort('blockedbyclient'));
+    await context.route('**/*', route => new URL(route.request().url()).origin === targetOrigin ? route.continue() : route.abort('blockedbyclient'));
     await context.exposeBinding('__bugreelCapture', ({ frame }, payload) => {
       if (frame !== page.mainFrame() || !payload || JSON.stringify(payload).length > 16000 || !['click', 'input', 'change', 'submit'].includes(payload.type)) return;
-      if (typeof payload.url !== 'string' || new URL(payload.url).origin !== APP_ORIGIN || !Number.isFinite(Date.parse(payload.timestamp))) return;
+      if (typeof payload.url !== 'string' || new URL(payload.url).origin !== targetOrigin || !Number.isFinite(Date.parse(payload.timestamp))) return;
       if (payload.selector && (!['testId', 'id', 'label', 'placeholder', 'text', 'css'].includes(payload.selector.kind) || typeof payload.selector.value !== 'string')) return;
       if (!payload.selector && !session.warnings.includes('Some interactions have no reliable selector and cannot be replayed.')) session.warnings.push('Some interactions have no reliable selector and cannot be replayed.');
       lastActionAt = Date.now();
@@ -50,7 +53,7 @@ export async function startRecording() {
     });
     await context.addInitScript({ path: path.join(process.cwd(), 'src', 'lib', 'recorder', 'injected.js') });
     page.on('framenavigated', frame => {
-      if (frame !== page.mainFrame() || !frame.url().startsWith(APP_ORIGIN)) return;
+      if (frame !== page.mainFrame() || !frame.url().startsWith(targetOrigin)) return;
       record({ type: 'navigation', url: frame.url(), timestamp: new Date().toISOString(), causedByAction: session.events.length > 0 && Date.now() - lastActionAt < 3000 });
     });
     page.on('console', message => {
@@ -69,16 +72,36 @@ export async function startRecording() {
       const request = response.request();
       const evidence = { id: randomUUID(), kind: 'http' as const, url: response.url(), method: request.method(), status: response.status(), resourceType: request.resourceType(), ...clock(), code: undefined as string | undefined };
       session.networkErrors.push(evidence);
-      if (new URL(response.url()).pathname !== CHECKOUT_PATH || request.method() !== 'POST') return;
+      if (target === 'demo') {
+        if (new URL(response.url()).pathname !== CHECKOUT_PATH || request.method() !== 'POST') return;
+        track((async () => {
+          const body = await response.json().catch(() => null);
+          if (response.status() !== 500 || body?.code !== FAILURE_CODE) return;
+          evidence.code = body.code;
+          session.failure = { code: FAILURE_CODE, message: FAILURE_MESSAGE, method: 'POST', pathname: CHECKOUT_PATH, status: 500, networkId: evidence.id, visible: false };
+          if (!failureScreenshot) {
+            failureScreenshot = (async () => {
+              await page.getByTestId('checkout-error').waitFor({ state: 'visible', timeout: 8000 });
+              session.failure!.visible = true;
+              await page.screenshot({ path: path.join(sessionDirectory(session.id), 'recorded-failure.png'), fullPage: true, animations: 'disabled' });
+              session.screenshots.push({ id: randomUUID(), name: 'recorded-failure.png', reason: 'failure', timestamp: new Date().toISOString() });
+            })();
+            await failureScreenshot;
+          }
+        })());
+        return;
+      }
+      if (response.status() < 500 || session.failure) return;
       track((async () => {
         const body = await response.json().catch(() => null);
-        if (response.status() !== 500 || body?.code !== FAILURE_CODE) return;
-        evidence.code = body.code;
-        session.failure = { code: FAILURE_CODE, message: FAILURE_MESSAGE, method: 'POST', pathname: CHECKOUT_PATH, status: 500, networkId: evidence.id, visible: false };
+        const method = request.method();
+        const pathname = new URL(response.url()).pathname;
+        const code = ((typeof body?.code === 'string' && body.code) || (typeof body?.error === 'string' && body.error) || `HTTP_${response.status()}`).slice(0, 120);
+        evidence.code = code;
+        session.failure = { code, message: `${method} ${pathname} returned HTTP ${response.status()}.`, method, pathname, status: response.status(), networkId: evidence.id, visible: false, triggerActionId: session.actions.at(-1)?.id };
         if (!failureScreenshot) {
           failureScreenshot = (async () => {
-            await page.getByTestId('checkout-error').waitFor({ state: 'visible', timeout: 8000 });
-            session.failure!.visible = true;
+            await page.waitForTimeout(600);
             await page.screenshot({ path: path.join(sessionDirectory(session.id), 'recorded-failure.png'), fullPage: true, animations: 'disabled' });
             session.screenshots.push({ id: randomUUID(), name: 'recorded-failure.png', reason: 'failure', timestamp: new Date().toISOString() });
           })();
@@ -127,7 +150,7 @@ export async function startRecording() {
       void saveSession(session).catch(() => {});
     });
     await page.goto(session.startUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.getByTestId('add-to-cart').waitFor({ state: 'visible', timeout: 15_000 });
+    if (target === 'demo') await page.getByTestId('add-to-cart').waitFor({ state: 'visible', timeout: 15_000 });
     session.status = 'recording';
     await saveSession(session);
     return session;
@@ -138,6 +161,9 @@ export async function startRecording() {
     if (state.busy === session.id) state.busy = undefined;
     if (state.activeRecording?.id === session.id) state.activeRecording = undefined;
     await saveSession(session);
+    if (target === 'local' && error instanceof Error && error.message.includes('ERR_CONNECTION_REFUSED')) {
+      throw new ApiError(`Nothing is listening at ${targetOrigin}. Start your app first, then record.`, 400);
+    }
     throw error;
   }
 }

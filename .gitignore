@@ -7,3 +7,5 @@ playwright-report/
 .env*
 next-env.d.ts
 docs/demo-raw/
+apps/extension/dist/
+apps/extension/release/

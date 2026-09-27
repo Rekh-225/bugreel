@@ -32,6 +32,13 @@ jobs:
         run: xvfb-run -a --server-args="-screen 0 1920x1080x24" npm test
         env:
           BUGREEL_TEST_PRODUCTION: "1"
+      - name: Build and test the Chrome extension (headless, persistent context)
+        run: npm run test:extension
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bugreel-extension
+          path: apps/extension/dist/
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

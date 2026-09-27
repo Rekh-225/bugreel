@@ -46,7 +46,7 @@ test('records a scenario, reviews evidence, and exports a valid report, recordin
   await expect(evidence.filter({ hasText: 'POST → HTTP 500' })).toHaveCount(1);
   await expect(evidence.filter({ hasText: 'ORDER_SUBMISSION_FAILED' })).toContainText('[REDACTED:email]');
 
-  await panel.getByTestId('title').fill('Checkout fails with <b>coupon</b>');
+  await panel.getByTestId('title').fill('Checkout fails after applying a coupon');
   await panel.getByTestId('expected').fill('The order is placed.');
   await panel.getByTestId('actual').fill('An error banner appears and POST /api/fail returns 500.');
   await evidence.filter({ hasText: 'POST → HTTP 500' }).getByTestId('signature').check();
@@ -58,7 +58,7 @@ test('records a scenario, reviews evidence, and exports a valid report, recordin
   const recording = JSON.parse(json.text);
   const validation = validateRecording(recording);
   expect(validation.ok ? [] : validation.errors).toEqual([]);
-  expect(recording.report.title).toBe('Checkout fails with <b>coupon</b>');
+  expect(recording.report.title).toBe('Checkout fails after applying a coupon');
   expect(recording.evidence.failureSignature.kind).toBe('http');
   expect(recording.playwright).toMatchObject({ verified: false, assertion: 'failure-signature' });
   expect(recording.requiredConfiguration.map((entry: { key: string }) => entry.key)).toEqual(['BUGREEL_VALUE_1', 'BUGREEL_VALUE_2', 'BUGREEL_VALUE_3']);
@@ -66,7 +66,7 @@ test('records a scenario, reviews evidence, and exports a valid report, recordin
   expect(json.text).not.toContain('SAVE20');
 
   const markdown = await downloadText(panel, 'export-markdown');
-  expect(markdown.text).toContain('# Checkout fails with &lt;b&gt;coupon&lt;/b&gt;');
+  expect(markdown.text).toContain('# Checkout fails after applying a coupon');
   expect(markdown.text).toContain('**Unverified BugReel recording.**');
   expect(markdown.text).toContain('Screenshot pixels are not redacted.');
 
@@ -82,6 +82,15 @@ test('records a scenario, reviews evidence, and exports a valid report, recordin
   const bytes = await downloadBytes(shot.download);
   expect(bytes.subarray(1, 4).toString()).toBe('PNG');
   expect(bytes.length).toBe(recording.screenshot.byteLength);
+
+  // npm run ext:examples regenerates the documented example exports from this real run.
+  if (process.env.BUGREEL_WRITE_EXAMPLES) {
+    const directory = path.resolve('docs', 'extension', 'examples');
+    await fs.mkdir(directory, { recursive: true });
+    await fs.writeFile(path.join(directory, 'example-report.md'), markdown.text);
+    await fs.writeFile(path.join(directory, 'example.recording.json'), json.text);
+    await fs.writeFile(path.join(directory, 'example.spec.ts'), draft.text);
+  }
 });
 
 test('an exported draft is executable by the Playwright CLI once required values are configured', async ({ panel, site, server }, testInfo) => {
@@ -132,10 +141,14 @@ test('reviewing a visual bug without errors still exports, with an action-only d
   await expect(panel.getByTestId('live-counts')).toContainText('3 steps');
   await stopRecording(panel);
   await expect(panel.getByTestId('no-evidence')).toBeVisible();
+  await panel.getByTestId('title').fill('Settings view <b>overlaps</b> the menu');
   await panel.getByTestId('actual').fill('The settings heading overlaps the menu.');
   const draft = await downloadText(panel, 'export-playwright');
   expect(draft.text).toContain('// TODO: no assertion was generated.');
   expect(draft.text).toContain('// Actual behaviour reported: The settings heading overlaps the menu.');
+  const markdown = await downloadText(panel, 'export-markdown');
+  expect(markdown.text).toContain('# Settings view &lt;b&gt;overlaps&lt;/b&gt; the menu');
+  expect(markdown.text).toContain('_No console or network evidence was selected. This may be a visual or behavioural bug._');
   const json = JSON.parse((await downloadText(panel, 'export-json')).text);
   expect(json.playwright.assertion).toBe('none');
   expect(json.evidence).toEqual({ console: [], network: [], failureSignature: null });

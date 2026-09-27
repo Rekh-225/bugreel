@@ -4,7 +4,8 @@ import { plain, stripInvisible } from './source';
 /** Escapes inline Markdown so untrusted text cannot create links, images, HTML, headings, lists, or formatting. */
 export function mdText(text: string) {
   return plain(text, 5000)
-    .replace(/[\\`*_{}[\]()#+!|<>~&:]/g, char => char === '&' ? '&amp;' : char === '<' ? '&lt;' : char === '>' ? '&gt;' : `\\${char}`)
+    .replace(/[\\`*_{}[\]()#+!|<>~&]/g, char => char === '&' ? '&amp;' : char === '<' ? '&lt;' : char === '>' ? '&gt;' : `\\${char}`)
+    .replace(/:(?=\/\/)/g, '\\:')
     .replace(/^(\d+)\./, '$1\\.').replace(/^-/, '\\-').replace(/^=/, '\\=');
 }
 

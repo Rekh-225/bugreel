@@ -1,0 +1,184 @@
+{
+  "format": "bugreel-recording",
+  "schemaVersion": 1,
+  "generator": {
+    "name": "BugReel Chrome extension",
+    "version": "0.1.0"
+  },
+  "exportedAt": "2026-09-27T22:03:30.101Z",
+  "session": {
+    "id": "9085a05f-5a87-44c4-963c-f45fd6dfcaf5",
+    "status": "completed",
+    "startedAt": "2026-09-27T22:03:26.402Z",
+    "stoppedAt": "2026-09-27T22:03:29.779Z",
+    "durationMs": 3377,
+    "interruption": null,
+    "typedValuesRecorded": false,
+    "browser": "Chromium 153"
+  },
+  "target": {
+    "startUrl": "http://127.0.0.1:4173/app.html",
+    "origin": "http://127.0.0.1:4173",
+    "viewport": {
+      "width": 1200,
+      "height": 900
+    }
+  },
+  "report": {
+    "title": "Checkout fails after applying a coupon",
+    "expected": "The order is placed.",
+    "actual": "An error banner appears and POST /api/fail returns 500.",
+    "notes": ""
+  },
+  "actions": [
+    {
+      "id": "54af3d2f-4076-445a-89df-b2420e870510",
+      "timestamp": "2026-09-27T22:03:26.402Z",
+      "elapsedMs": 0,
+      "type": "goto",
+      "url": "http://127.0.0.1:4173/app.html",
+      "label": "Open /app.html"
+    },
+    {
+      "id": "0795b2df-79fb-4c1a-ba71-9837cf860931",
+      "timestamp": "2026-09-27T22:03:26.541Z",
+      "elapsedMs": 139,
+      "type": "fill",
+      "selector": {
+        "kind": "role",
+        "value": "Coupon code",
+        "confidence": "stable",
+        "role": "textbox"
+      },
+      "label": "Enter [value not recorded] in Coupon code",
+      "valueOmitted": "not-recorded",
+      "configKey": "BUGREEL_VALUE_1"
+    },
+    {
+      "id": "22575213-2737-41dc-b59c-036586679e03",
+      "timestamp": "2026-09-27T22:03:26.560Z",
+      "elapsedMs": 158,
+      "type": "fill",
+      "selector": {
+        "kind": "label",
+        "value": "Password",
+        "confidence": "stable"
+      },
+      "label": "Enter [password omitted] in Password",
+      "valueOmitted": "password",
+      "configKey": "BUGREEL_VALUE_2"
+    },
+    {
+      "id": "23f0ed47-8926-4214-be4b-ce47766a3bfe",
+      "timestamp": "2026-09-27T22:03:26.560Z",
+      "elapsedMs": 158,
+      "type": "select",
+      "selector": {
+        "kind": "role",
+        "value": "Size",
+        "confidence": "stable",
+        "role": "combobox"
+      },
+      "label": "Select [value not recorded] in Size",
+      "valueOmitted": "not-recorded",
+      "configKey": "BUGREEL_VALUE_3"
+    },
+    {
+      "id": "1543e81b-c6b7-4000-a3c1-449e2bc25f6d",
+      "timestamp": "2026-09-27T22:03:27.562Z",
+      "elapsedMs": 1160,
+      "type": "click",
+      "selector": {
+        "kind": "role",
+        "value": "Accept terms",
+        "confidence": "stable",
+        "role": "checkbox"
+      },
+      "label": "Click Accept terms"
+    },
+    {
+      "id": "5ca1e3ea-9bfe-4144-ad72-288bcc7709c1",
+      "timestamp": "2026-09-27T22:03:28.576Z",
+      "elapsedMs": 2174,
+      "type": "click",
+      "selector": {
+        "kind": "testId",
+        "value": "checkout",
+        "confidence": "stable"
+      },
+      "label": "Click Checkout"
+    }
+  ],
+  "evidence": {
+    "console": [
+      {
+        "id": "06b0c2f3-3086-4fe1-afa8-7bff2fa33521",
+        "kind": "console",
+        "message": "Checkout failed: ORDER_SUBMISSION_FAILED for user [REDACTED:email]",
+        "timestamp": "2026-09-27T22:03:28.642Z",
+        "elapsedMs": 2240,
+        "url": "http://127.0.0.1:4173/app.html",
+        "line": 27,
+        "column": 11,
+        "stack": [
+          "<anonymous> (http://127.0.0.1:4173/app.html:27:11)"
+        ]
+      }
+    ],
+    "network": [
+      {
+        "id": "6e80b6fd-e319-45f2-b7cf-c19d36da7e6b",
+        "kind": "http",
+        "method": "POST",
+        "url": "http://127.0.0.1:4173/api/fail",
+        "status": 500,
+        "statusText": "Internal Server Error",
+        "resourceType": "Fetch",
+        "timestamp": "2026-09-27T22:03:28.640Z",
+        "elapsedMs": 2238
+      }
+    ],
+    "failureSignature": {
+      "evidenceId": "6e80b6fd-e319-45f2-b7cf-c19d36da7e6b",
+      "kind": "http"
+    }
+  },
+  "screenshot": {
+    "fileName": "bugreel-20260927-2203-9085a05f-screenshot.png",
+    "mimeType": "image/png",
+    "width": 1200,
+    "height": 900,
+    "byteLength": 25419,
+    "capturedAt": "2026-09-27T22:03:29.635Z",
+    "pixelsRedacted": false
+  },
+  "unsupportedSteps": [],
+  "gaps": [],
+  "requiredConfiguration": [
+    {
+      "key": "BUGREEL_VALUE_1",
+      "reason": "not-recorded",
+      "description": "Enter [value not recorded] in Coupon code (typed-value recording was off for this session)"
+    },
+    {
+      "key": "BUGREEL_VALUE_2",
+      "reason": "password",
+      "description": "Enter [password omitted] in Password (password field; the value is never recorded)"
+    },
+    {
+      "key": "BUGREEL_VALUE_3",
+      "reason": "not-recorded",
+      "description": "Select [value not recorded] in Size (typed-value recording was off for this session)"
+    }
+  ],
+  "playwright": {
+    "status": "draft",
+    "verified": false,
+    "assertion": "failure-signature",
+    "notes": [
+      "Typed values were omitted. Set the listed BUGREEL_VALUE_* environment variables before running the draft.",
+      "The draft starts from a fresh browser context. Sign-in state, cookies, and storage that existed before recording are not captured; configure authentication (for example storageState) if the page needs it.",
+      "The generated assertion checks that the selected failure still occurs. It passes while the bug is present; it is not a fix verification."
+    ]
+  }
+}

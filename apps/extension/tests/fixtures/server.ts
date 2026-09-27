@@ -64,7 +64,8 @@ export async function startFixtureServer(): Promise<FixtureServer> {
     if (url.pathname === '/api/reset') { request.socket.destroy(); return; }
     json(404, { error: 'not found' });
   });
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  // A fixed port (BUGREEL_FIXTURE_PORT) keeps URLs stable when regenerating the documentation examples.
+  await new Promise<void>(resolve => server.listen(Number(process.env.BUGREEL_FIXTURE_PORT) || 0, '127.0.0.1', resolve));
   port = (server.address() as AddressInfo).port;
   // localhost must resolve to the same listener; bind IPv6 loopback too when available.
   const v6 = http.createServer((request, response) => server.emit('request', request, response));

@@ -11,6 +11,7 @@
     "ext:build": "node apps/extension/scripts/build.mjs",
     "ext:package": "node apps/extension/scripts/build.mjs --zip",
     "test:extension": "node apps/extension/scripts/build.mjs && playwright test -c playwright.extension.config.ts",
+    "ext:examples": "node apps/extension/scripts/build.mjs && node apps/extension/scripts/examples.mjs",
     "demo:record": "playwright test --config scripts/demo/playwright.config.ts",
     "demo:encode": "node scripts/demo/encode.mjs"
   },

@@ -41,7 +41,8 @@ test('CSS escaping matches the browser CSS.escape implementation', async ({ page
 
 test('Markdown escaping neutralizes links, images, HTML, and code fences', () => {
   const text = mdText('![x](https://evil.example/t.png) <img src=x onerror=alert(1)> [link](javascript:alert(1)) # heading');
-  expect(text).not.toMatch(/!\[|\]\(|<img|javascript:/);
+  expect(text).not.toMatch(/!\[|\]\(|<img|https:\/\//);
+  expect(text).toContain('\\[link\\]\\(javascript:alert\\(1\\)\\)');
   expect(mdText('1. not a list')).toBe('1\\. not a list');
   expect(mdCode('a `tick` b')).toBe('``a `tick` b``');
 });

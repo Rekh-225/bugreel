@@ -19,6 +19,17 @@ Playwright's main test configuration starts the app with the test-only local CDP
 
 Set `BUGREEL_TEST_PRODUCTION=1` when running tests to have Playwright start the production build instead of the development server. Set `BUGREEL_REPLAY_HEADLESS=1` on the application server only if visible replay is unavailable. Recording remains visible.
 
+## Chrome extension and shared core
+
+`apps/extension` is a Manifest V3 extension (module service worker, bundled capture script, React side panel) and `packages/core` holds browser-compatible logic shared with the app: model types, `normalizeEvents` (frozen app behaviour) and `normalizeCapture` (extension), source escaping and locators, URL/text redaction, the schema v1 recording (`schema/bugreel-recording-v1.schema.json` mirrored by `validateRecording`), and the Markdown and Playwright generators. Nothing in `packages/core` may import Node modules; `src/lib/generation.ts` keeps `node:crypto` and must keep producing byte-identical output for the app.
+
+- Build: `npm run ext:build` (to `apps/extension/dist`, gitignored); ZIP: `npm run ext:package` (to `apps/extension/release`, gitignored); type check: `npm run typecheck` covers both projects.
+- Tests: `npm run test:extension` builds first and runs `playwright.extension.config.ts` (core unit tests plus persistent-context extension tests, headless with `channel: 'chromium'`; set `BUGREEL_EXTENSION_HEADED=1` to watch). These do not need the Next.js server and can run while it is up.
+- Regenerate `docs/extension/examples` with `npm run ext:examples` after intentional export changes.
+- Permissions are exactly `debugger`, `storage`, `sidePanel`. The capture script is injected through CDP into a dedicated isolated world; do not add host permissions, `activeTab`, `scripting`, content scripts, or web-accessible resources without updating the README, PRIVACY.md, and the packaging test.
+- The extension must never block page traffic, read bodies/headers/cookies, record password values, run exported drafts, or label a draft as verified/reproduced. Recording gaps (pause) mark the draft `test.fixme`; omitted values become `BUGREEL_VALUE_n` placeholders.
+- Side panel tests open `sidepanel.html?tab=<tabId>` because Playwright cannot click the toolbar; keep that query parameter working. Keep the `data-testid` attributes in the panel and fixture pages stable.
+
 ## Product invariants
 
 - Only successfully applied SAVE20 makes checkout return HTTP 500 with DISCOUNT_CHECKOUT_FAILURE. Typed-but-unapplied SAVE20 and normal checkout succeed.

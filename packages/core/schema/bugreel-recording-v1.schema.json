@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bugreel-recording-v1.schema.json",
+  "title": "BugReel recording (schema version 1)",
+  "description": "A sanitized bug recording exported by the BugReel Chrome extension. Mirrors validateRecording() in packages/core/src/recording.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "schemaVersion", "generator", "exportedAt", "session", "target", "report", "actions", "evidence", "screenshot", "unsupportedSteps", "gaps", "requiredConfiguration", "playwright"],
+  "properties": {
+    "format": { "const": "bugreel-recording" },
+    "schemaVersion": { "const": 1 },
+    "generator": {
+      "type": "object", "additionalProperties": false, "required": ["name", "version"],
+      "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 40 } }
+    },
+    "exportedAt": { "$ref": "#/$defs/timestamp" },
+    "session": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "startedAt", "stoppedAt", "durationMs", "interruption", "typedValuesRecorded", "browser"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["completed", "interrupted"] },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "stoppedAt": { "$ref": "#/$defs/timestamp" },
+        "durationMs": { "$ref": "#/$defs/nonNegativeInteger" },
+        "interruption": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object", "additionalProperties": false, "required": ["reason", "message"],
+              "properties": {
+                "reason": { "enum": ["cross-origin-navigation", "tab-closed", "debugger-detached", "browser-restart", "access-lost", "storage-error", "limit-reached", "tab-crashed"] },
+                "message": { "type": "string", "minLength": 1, "maxLength": 500 }
+              }
+            }
+          ]
+        },
+        "typedValuesRecorded": { "type": "boolean" },
+        "browser": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 60 }] }
+      },
+      "if": { "properties": { "status": { "const": "interrupted" } } },
+      "then": { "properties": { "interruption": { "type": "object" } } }
+    },
+    "target": {
+      "type": "object", "additionalProperties": false, "required": ["startUrl", "origin", "viewport"],
+      "properties": {
+        "startUrl": { "$ref": "#/$defs/httpUrl" },
+        "origin": { "$ref": "#/$defs/httpUrl" },
+        "viewport": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object", "additionalProperties": false, "required": ["width", "height"],
+              "properties": { "width": { "type": "integer", "minimum": 1, "maximum": 20000 }, "height": { "type": "integer", "minimum": 1, "maximum": 20000 } }
+            }
+          ]
+        }
+      }
+    },
+    "report": {
+      "type": "object", "additionalProperties": false, "required": ["title", "expected", "actual", "notes"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "expected": { "type": "string", "maxLength": 5000 },
+        "actual": { "type": "string", "maxLength": 5000 },
+        "notes": { "type": "string", "maxLength": 5000 }
+      }
+    },
+    "actions": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/action" } },
+    "evidence": {
+      "type": "object", "additionalProperties": false, "required": ["console", "network", "failureSignature"],
+      "properties": {
+        "console": { "type": "array", "maxItems": 300, "items": { "$ref": "#/$defs/consoleItem" } },
+        "network": { "type": "array", "maxItems": 300, "items": { "$ref": "#/$defs/networkItem" } },
+        "failureSignature": {
+          "description": "Must reference an included evidence item of the same kind (checked by validateRecording).",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object", "additionalProperties": false, "required": ["evidenceId", "kind"],
+              "properties": { "evidenceId": { "$ref": "#/$defs/id" }, "kind": { "enum": ["console", "exception", "http", "transport"] } }
+            }
+          ]
+        }
+      }
+    },
+    "screenshot": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["fileName", "mimeType", "width", "height", "byteLength", "capturedAt", "pixelsRedacted"],
+          "properties": {
+            "fileName": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9._-]+\\.png$" },
+            "mimeType": { "const": "image/png" },
+            "width": { "type": "integer", "minimum": 1, "maximum": 50000 },
+            "height": { "type": "integer", "minimum": 1, "maximum": 50000 },
+            "byteLength": { "type": "integer", "minimum": 1 },
+            "capturedAt": { "$ref": "#/$defs/timestamp" },
+            "pixelsRedacted": { "const": false }
+          }
+        }
+      ]
+    },
+    "unsupportedSteps": {
+      "type": "array", "maxItems": 200,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "reason", "description", "timestamp", "elapsedMs"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "reason": { "enum": ["file-input", "contenteditable", "frame", "no-selector", "drag-drop", "keyboard", "shadow-dom"] },
+          "description": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "timestamp": { "$ref": "#/$defs/timestamp" },
+          "elapsedMs": { "$ref": "#/$defs/nonNegativeInteger" },
+          "url": { "type": "string", "maxLength": 2048 }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array", "maxItems": 100,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "reason", "startedAt", "endedAt", "startElapsedMs", "endElapsedMs"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "reason": { "const": "paused" },
+          "startedAt": { "$ref": "#/$defs/timestamp" },
+          "endedAt": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+          "startElapsedMs": { "$ref": "#/$defs/nonNegativeInteger" },
+          "endElapsedMs": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonNegativeInteger" }] }
+        }
+      }
+    },
+    "requiredConfiguration": {
+      "type": "array", "maxItems": 200,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["key", "reason", "description"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1, "maxLength": 60 },
+          "reason": { "enum": ["password", "sensitive", "not-recorded", "redacted-url"] },
+          "description": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "playwright": {
+      "type": "object", "additionalProperties": false, "required": ["status", "verified", "assertion", "notes"],
+      "properties": {
+        "status": { "enum": ["draft", "incomplete"] },
+        "verified": { "const": false, "description": "BugReel never runs exported drafts, so a draft is never verified." },
+        "assertion": { "enum": ["failure-signature", "none"] },
+        "notes": { "type": "array", "maxItems": 50, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+    "timestamp": { "type": "string", "maxLength": 40, "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$" },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "httpUrl": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^https?://" },
+    "selector": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "value", "confidence"],
+      "properties": {
+        "kind": { "enum": ["testId", "role", "id", "label", "placeholder", "text", "css"] },
+        "value": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "confidence": { "enum": ["stable", "fallback"] },
+        "role": { "enum": ["button", "link", "checkbox", "radio", "tab", "menuitem", "option", "switch", "textbox", "combobox", "searchbox", "spinbutton"] }
+      },
+      "if": { "properties": { "kind": { "const": "role" } } },
+      "then": { "required": ["role"] }
+    },
+    "action": {
+      "type": "object", "additionalProperties": false, "required": ["id", "type", "label", "timestamp", "elapsedMs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "enum": ["goto", "click", "fill", "press", "waitForURL", "select", "reload"] },
+        "label": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "elapsedMs": { "$ref": "#/$defs/nonNegativeInteger" },
+        "url": { "$ref": "#/$defs/httpUrl" },
+        "selector": { "$ref": "#/$defs/selector" },
+        "value": { "type": "string", "maxLength": 2000 },
+        "valueOmitted": { "enum": ["password", "sensitive", "not-recorded"] },
+        "configKey": { "type": "string", "pattern": "^BUGREEL_[A-Z0-9_]{1,40}$" }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "enum": ["goto", "waitForURL", "reload"] } } }, "then": { "required": ["url"] } },
+        { "if": { "properties": { "type": { "enum": ["click", "fill", "press", "select"] } } }, "then": { "required": ["selector"] } },
+        { "if": { "properties": { "type": { "enum": ["fill", "select"] } } }, "then": { "anyOf": [{ "required": ["value"] }, { "required": ["configKey"] }] } }
+      ]
+    },
+    "consoleItem": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "message", "timestamp", "elapsedMs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["console", "exception"] },
+        "message": { "type": "string", "maxLength": 1000 },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "elapsedMs": { "$ref": "#/$defs/nonNegativeInteger" },
+        "url": { "type": "string", "maxLength": 2048 },
+        "line": { "$ref": "#/$defs/nonNegativeInteger" },
+        "column": { "$ref": "#/$defs/nonNegativeInteger" },
+        "stack": { "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 300 } }
+      }
+    },
+    "networkItem": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "method", "url", "timestamp", "elapsedMs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["http", "transport"] },
+        "method": { "type": "string", "minLength": 1, "maxLength": 16, "pattern": "^[A-Z]+$" },
+        "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "statusText": { "type": "string", "maxLength": 100 },
+        "error": { "type": "string", "maxLength": 200 },
+        "resourceType": { "type": "string", "maxLength": 40 },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "elapsedMs": { "$ref": "#/$defs/nonNegativeInteger" }
+      },
+      "if": { "properties": { "kind": { "const": "http" } } },
+      "then": { "required": ["status"] }
+    }
+  }
+}

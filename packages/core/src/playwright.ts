@@ -1,14 +1,10 @@
 import type { BugReelRecording, RecordingAction } from './recording';
-import { signatureText } from './recording';
+import { networkSignatureTarget, signatureText, triggerActionIndex } from './recording';
 import { comment, literal, locatorSource, plain } from './source';
 
 const I2 = '  ';
 const I4 = '    ';
 const I6 = '      ';
-
-function pathnameOf(url: string) {
-  try { return new URL(url).pathname; } catch { return null; }
-}
 
 function valueSource(action: RecordingAction) {
   return action.configKey ? `requiredValue(${literal(action.configKey)})` : literal(action.value ?? '');
@@ -67,39 +63,49 @@ export function generatePlaywright(recording: BugReelRecording): string {
     for (const entry of recording.requiredConfiguration) header.push(comment(`- ${entry.key}: ${plain(entry.description, 300)}`));
   }
 
+  // Failure observation starts immediately before the step that most likely triggered the recorded failure, so an
+  // unrelated earlier failure (or one from another origin with the same path) cannot satisfy the check.
   const setup: string[] = [];
   const checks: string[] = [];
-  if (failure && failure.kind === 'http') {
-    const path = pathnameOf(failure.url)!;
-    setup.push(
-      comment(`Recorded failure: ${failure.method} ${path} returned HTTP ${failure.status}.`, I2),
-      `${I2}const failureResponse = page.waitForResponse(response => response.request().method() === ${literal(failure.method)} && new URL(response.url()).pathname === ${literal(path)} && response.status() === ${failure.status}).catch(() => null);`,
-    );
-    checks.push(`${I4}const response = await failureResponse;`, `${I4}expect(response, ${literal(`Expected ${failure.method} ${path} to return HTTP ${failure.status}, as recorded`)}).not.toBeNull();`);
-  } else if (failure && failure.kind === 'transport') {
-    const path = pathnameOf(failure.url)!;
-    setup.push(
-      comment(`Recorded failure: ${failure.method} ${path} failed (${plain(failure.error || 'network error', 120)}).`, I2),
-      `${I2}const failedRequests: { method: string; url: string }[] = [];`,
-      `${I2}page.on('requestfailed', request => failedRequests.push({ method: request.method(), url: request.url() }));`,
-    );
-    checks.push(`${I4}await expect.poll(() => failedRequests.some(request => request.method === ${literal(failure.method)} && new URL(request.url).pathname === ${literal(path)}), { message: ${literal(`Expected ${failure.method} ${path} to fail, as recorded`)} }).toBe(true);`);
+  if (failure && (failure.kind === 'http' || failure.kind === 'transport')) {
+    const target = networkSignatureTarget(failure.url)!;
+    const where = `${failure.method} ${target.origin}${target.pathname}`;
+    const matchUrl = (variable: string) => `${variable}.origin === ${literal(target.origin)} && ${variable}.pathname === ${literal(target.pathname)}`;
+    if (failure.kind === 'http') {
+      setup.push(
+        comment(`Recorded failure: ${where} returned HTTP ${failure.status}. Only this origin, path, method, and status match.`, I4),
+        `${I4}const failureResponse = page.waitForResponse(response => { const url = new URL(response.url()); return response.request().method() === ${literal(failure.method)} && ${matchUrl('url')} && response.status() === ${failure.status}; }).catch(() => null);`,
+      );
+      checks.push(`${I4}const response = await failureResponse;`, `${I4}expect(response, ${literal(`Expected ${where} to return HTTP ${failure.status}, as recorded`)}).not.toBeNull();`);
+    } else {
+      setup.push(
+        comment(`Recorded failure: ${where} failed (${plain(failure.error || 'network error', 120)}). Only this origin, path, and method match.`, I4),
+        `${I4}const failedRequests: { method: string; url: string }[] = [];`,
+        `${I4}page.on('requestfailed', request => failedRequests.push({ method: request.method(), url: request.url() }));`,
+      );
+      checks.push(`${I4}await expect.poll(() => failedRequests.some(request => { const url = new URL(request.url); return request.method === ${literal(failure.method)} && ${matchUrl('url')}; }), { message: ${literal(`Expected ${where} to fail, as recorded`)} }).toBe(true);`);
+    }
   } else if (failure && (failure.kind === 'console' || failure.kind === 'exception')) {
     const text = signatureText(failure.message)!;
     if (failure.kind === 'console') {
-      setup.push(comment('Recorded failure: a console error containing the text below.', I2), `${I2}const consoleErrors: string[] = [];`, `${I2}page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });`);
-      checks.push(`${I4}await expect.poll(() => consoleErrors.some(text => text.includes(${literal(text)})), { message: 'Expected the recorded console error' }).toBe(true);`);
+      // Recordings from earlier versions have no consoleType; they only ever recorded console.error.
+      const type = failure.consoleType ?? 'error';
+      setup.push(comment(`Recorded failure: a console.${type} message containing the text below.`, I4), `${I4}const consoleMessages: string[] = [];`, `${I4}page.on('console', message => { if (message.type() === ${literal(type)}) consoleMessages.push(message.text()); });`);
+      checks.push(`${I4}await expect.poll(() => consoleMessages.some(text => text.includes(${literal(text)})), { message: ${literal(`Expected the recorded console.${type} message`)} }).toBe(true);`);
     } else {
-      setup.push(comment('Recorded failure: an uncaught exception containing the text below.', I2), `${I2}const pageErrors: string[] = [];`, `${I2}page.on('pageerror', error => pageErrors.push(error.message));`);
+      setup.push(comment('Recorded failure: an uncaught exception containing the text below.', I4), `${I4}const pageErrors: string[] = [];`, `${I4}page.on('pageerror', error => pageErrors.push(error.message));`);
       checks.push(`${I4}await expect.poll(() => pageErrors.some(text => text.includes(${literal(text)})), { message: 'Expected the recorded uncaught exception' }).toBe(true);`);
     }
   }
 
   const timeline: TimelineItem[] = [];
+  const trigger = failure ? triggerActionIndex(recording.actions, failure.elapsedMs) : -1;
   recording.actions.forEach((action, index) => {
     const body = actionSource(action).map(line => `${I6}${line}`).join('\n');
-    timeline.push({ at: action.elapsedMs, order: 1, lines: [`${I4}await test.step(${literal(`${index + 1}. ${action.label}`)}, async () => {`, body, `${I4}});`] });
+    const step = [`${I4}await test.step(${literal(`${index + 1}. ${action.label}`)}, async () => {`, body, `${I4}});`];
+    timeline.push({ at: action.elapsedMs, order: 1, lines: index === trigger && setup.length ? [...setup, ...step] : step });
   });
+  if (setup.length && trigger === -1) timeline.push({ at: -1, order: 0, lines: setup });
   recording.unsupportedSteps.forEach(step => timeline.push({ at: step.elapsedMs, order: 0, lines: [comment(`UNSUPPORTED STEP (not replayed, ${step.reason}): ${plain(step.description, 250)}`, I4)] }));
   recording.gaps.forEach((gap, index) => timeline.push({
     at: gap.startElapsedMs, order: 0,
@@ -109,7 +115,6 @@ export function generatePlaywright(recording: BugReelRecording): string {
 
   const body: string[] = [];
   if (recording.gaps.length) body.push(`${I2}test.fixme(true, ${literal('BugReel: this recording has gaps. Add the missing steps marked RECORDING GAP, then remove this line.')});`, '');
-  if (setup.length) body.push(...setup, '');
   body.push(`${I2}try {`);
   body.push(...timeline.flatMap(item => item.lines));
   if (checks.length) {

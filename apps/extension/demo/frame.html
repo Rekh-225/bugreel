@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Embedded frame</title><style>body{font:13px system-ui;margin:8px}button{margin-right:6px}</style></head>
+<body>
+  <strong>Embedded frame.</strong> Clicks and errors here are not recorded (main frame only), but this text appears in screenshots.
+  <div>
+    <button id="frame-click">Click inside the frame</button>
+    <button id="frame-error">Log an error inside the frame</button>
+    <input aria-label="Frame secret" placeholder="frame-only text (screenshots show it)">
+  </div>
+  <script>
+    document.getElementById('frame-error').addEventListener('click', () => console.error('FRAME_ONLY_ERROR (demo)'));
+  </script>
+</body>
+</html>

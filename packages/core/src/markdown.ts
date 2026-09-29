@@ -72,7 +72,8 @@ export function generateMarkdown(recording: BugReelRecording): string {
   if (evidence.console.length) {
     out.push('### Console errors and exceptions', '');
     for (const item of evidence.console) {
-      out.push(`- ${item.id === signatureId ? '**Failure signature** · ' : ''}${item.kind === 'exception' ? 'Uncaught exception' : 'Console error'} at +${durationText(item.elapsedMs)}${item.url ? ` in ${mdCode(`${item.url}${item.line !== undefined ? `:${item.line}` : ''}`)}` : ''}`, '');
+      const label = item.kind === 'exception' ? 'Uncaught exception' : item.consoleType === 'assert' ? 'Console assertion failure (console.assert)' : 'Console error (console.error)';
+      out.push(`- ${item.id === signatureId ? '**Failure signature** · ' : ''}${label} at +${durationText(item.elapsedMs)}${item.url ? ` in ${mdCode(`${item.url}${item.line !== undefined ? `:${item.line}` : ''}`)}` : ''}`, '');
       out.push(mdBlock([item.message, ...(item.stack ?? []).map(frame => `    at ${frame}`)].join('\n')).split('\n').map(line => `  ${line}`).join('\n'), '');
     }
   }

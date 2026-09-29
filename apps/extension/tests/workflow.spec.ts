@@ -1,10 +1,8 @@
-import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import { validateRecording } from '../../../packages/core/src/index';
 import { expect, readDb, test } from './fixtures/extension';
-import { downloadBytes, downloadText, skipOnboarding, startRecording, stopRecording } from './fixtures/panel';
+import { downloadBytes, downloadText, runDraft, skipOnboarding, startRecording, stopRecording } from './fixtures/panel';
 
 test('first run explains the debugger permission and data handling before recording', async ({ panel }) => {
   const onboarding = panel.getByTestId('onboarding');
@@ -117,18 +115,7 @@ test('an exported draft is executable by the Playwright CLI once required values
   expect(draft.text).toContain(`await page.waitForURL("${server.url('/app/settings')}");`);
 
   // BugReel never runs drafts itself. This test runs one only to prove the generator emits working code.
-  const directory = testInfo.outputPath('draft');
-  await fs.mkdir(directory, { recursive: true });
-  await fs.writeFile(path.join(directory, 'draft.spec.ts'), draft.text);
-  await fs.writeFile(path.join(directory, 'playwright.config.mjs'), `export default { testDir: '.', timeout: 30000, reporter: 'line', use: { headless: true, browserName: 'chromium' }, outputDir: 'out' };\n`);
-  const cli = createRequire(path.resolve('package.json')).resolve('@playwright/test/cli');
-  const child = spawn(process.execPath, [cli, 'test', '--config', path.join(directory, 'playwright.config.mjs')], {
-    cwd: directory, env: { ...process.env, BUGREEL_VALUE_1: 'any-password', BUGREEL_VALUE_2: 'qa@example.test' }, shell: false,
-  });
-  let output = '';
-  child.stdout.on('data', data => { output += data; });
-  child.stderr.on('data', data => { output += data; });
-  const exit = await new Promise<number | null>((resolve, reject) => { child.on('close', resolve); child.on('error', reject); });
+  const { exit, output } = await runDraft(testInfo.outputPath('draft'), draft.text, { BUGREEL_VALUE_1: 'any-password', BUGREEL_VALUE_2: 'qa@example.test' });
   expect(exit, output).toBe(0);
   expect(output).toContain('1 passed');
 });

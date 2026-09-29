@@ -10,8 +10,11 @@
     "test": "playwright test",
     "ext:build": "node apps/extension/scripts/build.mjs",
     "ext:package": "node apps/extension/scripts/build.mjs --zip",
+    "ext:inspect": "node apps/extension/scripts/inspect-package.mjs",
     "test:extension": "node apps/extension/scripts/build.mjs && playwright test -c playwright.extension.config.ts",
     "ext:examples": "node apps/extension/scripts/build.mjs && node apps/extension/scripts/examples.mjs",
+    "ext:demo": "node apps/extension/demo/serve.mjs",
+    "ext:store-shots": "node apps/extension/scripts/build.mjs && node apps/extension/scripts/store-shots.mjs",
     "demo:record": "playwright test --config scripts/demo/playwright.config.ts",
     "demo:encode": "node scripts/demo/encode.mjs"
   },

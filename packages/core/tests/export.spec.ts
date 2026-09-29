@@ -18,7 +18,10 @@ test('Playwright draft: unverified label, escaped steps, placeholders, and an HT
   expect(source).toContain('page.getByRole("textbox", { name: "Coupon code", exact: true }).fill("SAVE20")');
   expect(source).toContain('page.getByLabel("Password", { exact: true }).fill(requiredValue("BUGREEL_VALUE_1"))');
   expect(source).toContain('function requiredValue(name: string): string');
-  expect(source).toContain('response.request().method() === "POST" && new URL(response.url()).pathname === "/api/checkout" && response.status() === 500');
+  expect(source).toContain('response.request().method() === "POST" && url.origin === "https://shop.example" && url.pathname === "/api/checkout" && response.status() === 500');
+  // Observation starts right before the triggering step (the click at 3.9 s), not at the top of the test.
+  expect(source.indexOf('const failureResponse')).toBeGreaterThan(source.indexOf('3. Enter [password omitted] in Password'));
+  expect(source.indexOf('const failureResponse')).toBeLessThan(source.indexOf('4. Click Checkout'));
   expect(source).toContain('test.use({ viewport: { width: 1280, height: 800 } });');
   expect(source).not.toContain('eval(');
 });
@@ -40,13 +43,49 @@ test('Playwright draft: console and transport signatures, gaps, and unsupported 
   const transport = generatePlaywright(buildRecording({ ...input, review: { ...input.review, includedEvidenceIds: ['net-2'], failureEvidenceId: 'net-2' } }));
   expect(syntaxErrors(transport)).toEqual([]);
   expect(transport).toContain("page.on('requestfailed'");
-  expect(transport).toContain('request.method === "GET" && new URL(request.url).pathname === "/api/stock"');
+  expect(transport).toContain('request.method === "GET" && url.origin === "https://shop.example" && url.pathname === "/api/stock"');
   expect(transport).toContain('test.fixme(true, "BugReel: this recording has gaps.');
   expect(transport.indexOf('RECORDING GAP 1')).toBeLessThan(transport.indexOf('UNSUPPORTED STEP'));
   expect(transport.indexOf('UNSUPPORTED STEP')).toBeLessThan(transport.indexOf('Click Checkout'));
 
   const consoleDraft = generatePlaywright(buildRecording({ ...input, gaps: [], review: { ...input.review, failureEvidenceId: 'con-1' } }));
-  expect(consoleDraft).toContain('consoleErrors.some(text => text.includes("Checkout failed: ORDER_SUBMISSION_FAILED for"))');
+  expect(consoleDraft).toContain("if (message.type() === \"error\") consoleMessages.push(message.text());");
+  expect(consoleDraft).toContain('consoleMessages.some(text => text.includes("Checkout failed: ORDER_SUBMISSION_FAILED for"))');
+});
+
+test('console.assert evidence generates an assert listener; recordings without consoleType keep the error listener', () => {
+  const base = sampleInput();
+  const assertion = { ...base.console[0], id: 'con-assert', consoleType: 'assert' as const, message: 'Cart total must stay positive after discount' };
+  const draft = generatePlaywright(buildRecording({ ...base, console: [assertion], review: { ...base.review, includedEvidenceIds: ['con-assert'], failureEvidenceId: 'con-assert' } }));
+  expect(draft).toContain("if (message.type() === \"assert\") consoleMessages.push(message.text());");
+  expect(draft).toContain('text.includes("Cart total must stay positive after discount")');
+  expect(draft).toContain('Recorded failure: a console.assert message');
+  const legacy = generatePlaywright(buildRecording({ ...base, review: { ...base.review, failureEvidenceId: 'con-1' } }));
+  expect(base.console[0]).not.toHaveProperty('consoleType');
+  expect(legacy).toContain("message.type() === \"error\"");
+});
+
+test('network signatures whose origin or path was redacted produce no assertion instead of matching placeholders', () => {
+  const base = sampleInput();
+  const redacted = { ...base.network[0], id: 'net-redacted', url: 'https://shop.example/reset/REDACTED/confirm' };
+  const recording = buildRecording({ ...base, network: [redacted], review: { ...base.review, includedEvidenceIds: ['net-redacted'], failureEvidenceId: 'net-redacted' } });
+  expect(recording.playwright.assertion).toBe('none');
+  expect(recording.playwright.notes.join(' ')).toContain('redacted values, which are not executable');
+  const source = generatePlaywright(recording);
+  expect(source).not.toContain('waitForResponse');
+  expect(source).toContain('// TODO: no assertion was generated.');
+});
+
+test('an unrelated origin serving the same path, method, and status is rejected by the generated predicate', () => {
+  const source = generatePlaywright(buildRecording(sampleInput()));
+  const predicate = source.match(/page\.waitForResponse\((response => \{[^\n]*\})\)\.catch/)![1];
+  const matches = new Function('response', `return (${predicate})(response);`) as (response: unknown) => boolean;
+  const fake = (url: string, method = 'POST', status = 500) => ({ url: () => url, status: () => status, request: () => ({ method: () => method }) });
+  expect(matches(fake('https://shop.example/api/checkout?x=1'))).toBe(true);
+  expect(matches(fake('https://evil.example/api/checkout'))).toBe(false);
+  expect(matches(fake('https://shop.example.evil.example/api/checkout'))).toBe(false);
+  expect(matches(fake('https://shop.example/api/checkout', 'GET'))).toBe(false);
+  expect(matches(fake('https://shop.example/api/checkout', 'POST', 200))).toBe(false);
 });
 
 test('hostile page-derived values cannot break out of generated source or Markdown', () => {

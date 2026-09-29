@@ -18,25 +18,33 @@ This is the first usable release (0.1.0). It is a **separate capture surface** f
 
 ## Build and install
 
-Requirements: Node.js 22, npm, and Chrome 120 or newer on desktop.
+Requirements: Node.js 22, npm, and desktop Chrome 120 or newer (see [Browser versions](#browser-versions)). The commands below work in Windows PowerShell or cmd, macOS, and Linux shells.
+
+The extension lives on the `feature/chrome-extension` branch until it is merged; the default branch may not contain `apps/extension` yet. Clone that branch explicitly:
 
 ```bash
-git clone https://github.com/Rekh-225/bugreel.git
+git clone --branch feature/chrome-extension https://github.com/Rekh-225/bugreel.git
 cd bugreel
 npm ci
 npm run ext:build          # writes apps/extension/dist
 npm run ext:package        # also writes apps/extension/release/bugreel-extension-<version>.zip
 ```
 
+Already have a clone? `git fetch origin && git checkout feature/chrome-extension` before building.
+
 Load the unpacked build:
 
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and choose the `apps/extension/dist` folder.
+3. Click **Load unpacked** and choose the `apps/extension/dist` folder (on Windows, e.g. `C:\path\to\bugreel\apps\extension\dist`).
 4. Chrome shows the permission warnings **"Read and change all your data on all websites"** and **"Access the page debugger backend"**. Both come from the `debugger` permission; see [Permissions](#permissions).
 5. Pin the BugReel icon from the extensions menu so the recording badge is visible.
 
+Google Chrome no longer side-loads extensions from the `--load-extension` command-line flag (verified against Chrome 153: the flag is ignored), so **Load unpacked** is the only way to install a development build in Chrome. The automated tests use Playwright's Chromium build, which still honours the flag.
+
 The ZIP in `apps/extension/release/` contains exactly the files in `dist/` and is what a Chrome Web Store submission would upload. It contains no source maps, TypeScript, tests, or environment files.
+
+For a synthetic page to test against, run `npm run ext:demo` and open <http://127.0.0.1:4180/> (see [Demo site](#demo-site)).
 
 After changing source, run `npm run ext:build` again and press the reload icon on the BugReel card in `chrome://extensions`.
 
@@ -63,8 +71,8 @@ Pressing **Cancel** on Chrome's debugging banner, closing the tab, or navigating
 | Selects | `<select>` changes | Option values follow the same value-recording rule. |
 | Form submission | Submit clicks and Enter in a field | Enter becomes a `press('Enter')` step; a submit click is not duplicated. |
 | Navigation | Full-page loads, reloads, redirects, and same-origin SPA route changes | Navigations caused by a step become `waitForURL`; typed navigations become `goto`. |
-| Console | `console.error` and `console.assert` failures, uncaught exceptions | Message plus up to five stack frames, redacted and bounded. |
-| Network | Responses with status 400–599 and transport failures | Method, URL (sanitized), status, resource type, or error text. No bodies, headers, or cookies. |
+| Console | `console.error` and `console.assert` failures, uncaught exceptions — main frame only | Message plus up to five stack frames, redacted and bounded. The console type (`error`/`assert`) is stored so the draft listens for the right message type. |
+| Network | Responses with status 400–599 and transport failures initiated by the main frame | Method, URL (sanitized), status, resource type, or error text. No bodies, headers, or cookies. Requests from embedded frames are counted as out of scope, not stored. |
 | Screenshot | One PNG of the visible tab, on explicit request | Preview and discard controls; pixels are not redacted. |
 | Unsupported steps | File inputs, rich-text editors, embedded frames, drag and drop, Escape, web components, elements without a reliable selector | Reported as "not replayable" and inserted as comments in the draft. |
 
@@ -84,13 +92,19 @@ Verified by the automated suite in `apps/extension/tests` against Chromium with 
 - Restricted pages (`chrome://`, the Chrome Web Store, `file://`, `about:blank`) refused with an explanation.
 - Deleting a session removes its steps, evidence, review, and screenshot.
 - An exported draft runs under the Playwright CLI once its `BUGREEL_VALUE_*` variables are set (this proves the generator emits working code; BugReel itself never runs drafts).
+- Sensitive-field privacy: password, email, identifier, and recording-off text fields whose value getters throw and log every access are typed into, blurred, debounced, paused over, and stopped over without a single value read; recording-on ordinary fields are read once and never duplicated.
+- Coordination state and IndexedDB never contain a synthetic secret placed in a URL's query, fragment, or SPA route, including the page where recording resumed after a pause.
+- Same-process iframe errors, exceptions, and requests are excluded while main-frame ones (including cross-origin destinations) are kept, across navigation and a worker restart.
+- Exported HTTP and transport drafts pass against the recorded origin and fail when only a decoy origin serves the same path, method, and status; a `console.assert` draft listens for `assert` messages and passes with the captured text.
+- The synthetic demo site (`npm run ext:demo`) records end to end with sensitive values omitted and frame errors excluded.
 
 ## Known limitations
 
-- **One tab, main frame only.** Interactions inside iframes (same-origin or cross-origin) are not recorded; the frame interaction is reported as unsupported.
+- **One tab, main frame only — for steps and diagnostics.** Interactions inside iframes (same-origin or cross-origin) are not recorded; the frame interaction is reported as unsupported. Console errors, exceptions, and failed requests are kept only when their execution context or initiating frame is the main frame; everything else (embedded frames, contexts that cannot be attributed) is counted as *out of scope* and not stored. Requests the **main frame** makes to other origins are kept, because scope follows the initiating frame, not the destination. **Screenshots are the exception:** a visible-tab screenshot shows whatever is on screen, including embedded frames and any sensitive text, so it does capture frame content.
 - **Shadow DOM.** Clicks inside web components are reported as unsupported rather than guessed.
 - **Selectors are best effort.** Role and label names are computed with a simplified accessible-name algorithm; a mismatch makes the draft fail with a locator timeout rather than click the wrong element. Positional CSS fallbacks are flagged.
 - **Redaction is heuristic.** URL, message, and label redaction is conservative but cannot guarantee that every secret is detected. Review exports before sharing. Screenshots are never redacted.
+- **The recording indicator is injected into the page.** While recording, BugReel adds a small `<bugreel-recording-indicator>` element (closed shadow root, `pointer-events: none`) to the page and runs its capture script in an isolated world. It does not change page content, traffic, or behaviour beyond that, but "does not touch the page" would be false; the indicator is hidden while a screenshot is taken.
 - **Recording starts from the current page state.** The draft opens the start URL in a fresh browser context; sign-in state, cookies, and storage that existed before recording are not captured. Configure authentication (for example Playwright `storageState`) yourself.
 - **Requests that started before recording** (or before a background-worker restart) are not reported, because their method is unknown.
 - **Keyboard shortcuts** other than Enter in a field are not replayed; Escape is reported as unsupported.
@@ -117,7 +131,11 @@ packages/core/src          Portable model, normalization, sanitization, schema, 
 
 **Validation.** Every payload is checked in the worker: the binding name, the execution context (current main-frame isolated world, or the previous one for 1.5 s to accept flushes during navigation), a per-document nonce, the session ID and secret token, the page origin, payload size (16 KB), and structure. Typed values are dropped again in the worker when value recording is off.
 
-**Persistence.** Each captured record is appended to IndexedDB immediately. Coordination state (tab, session, token, binding, context IDs, pause state) lives in `chrome.storage.session`, which survives worker restarts but is cleared by Chrome on browser or extension restart. On startup the worker checks whether its debugger session still exists; if not, the session is marked interrupted. Sessions found in a recording state with no live coordination state are marked interrupted with the *browser-restart* reason. Recording is never resumed automatically.
+**Value policy before any read.** The capture script decides from element metadata (type, autocomplete, name, label, data attributes, masked text) whether a value may be transmitted *before* it touches `element.value`. Password, sensitive, and not-recorded fields are never read, not even to compare, cache, or hash them; blur-time duplicates are suppressed with a per-field "edited since last report" flag instead. Nothing is read while paused or after Stop. The privacy tests install value getters that throw and record every access to prove this.
+
+**Diagnostic scope.** The worker maps every execution context to its frame (`Runtime.executionContextCreated/Destroyed/executionContextsCleared`, persisted with the coordination state so it survives worker restarts) and keeps console, exception, and network evidence only for the main frame; `Network.requestWillBeSent` is filtered on its `frameId`. Anything unattributable is counted as out of scope, never stored. If the map cannot be reconstructed after a restart, evidence is dropped conservatively rather than broadened.
+
+**Persistence.** Each captured record is appended to IndexedDB immediately. Coordination state (tab, session, token, binding, context IDs, frame map, pause state) lives in `chrome.storage.session`, which survives worker restarts but is cleared by Chrome on browser or extension restart. Raw URLs from CDP events are transient: the coordination state keeps only the sanitized current URL plus a session-salted SHA-256 digest of the raw URL, which resume uses to detect that the page changed while paused without retaining credentials, secret query values, or fragments. On startup the worker checks whether its debugger session still exists; if not, the session is marked interrupted. Sessions found in a recording state with no live coordination state are marked interrupted with the *browser-restart* reason. Recording is never resumed automatically.
 
 **Events processed in order.** All CDP events and commands run through one serialized queue, so a Stop cannot overtake the typing flushed by the page, and the same document nonce cannot be reused after a navigation.
 
@@ -137,10 +155,10 @@ The tab and origin are enforced in code: CDP events from other tabs are ignored,
 
 ## Data handling, storage, and limits
 
-- All data stays in the Chrome profile's IndexedDB (`bugreel` database) and `chrome.storage`. The extension makes no network requests of its own.
+- All data stays in the Chrome profile's IndexedDB (`bugreel` database) and `chrome.storage`. The extension makes no network requests of its own. Local processing is still handling of user data (page content, interactions, URLs, diagnostics, optional typed text, screenshots) and is disclosed as such in the [privacy disclosure](../../docs/extension/PRIVACY.md).
 - Typed values are **off by default**. When on, values are still omitted for password fields (`type=password`, `autocomplete=current-password/new-password`, masked text), `email`, `tel`, and `hidden` inputs, fields with payment, name, address, one-time-code, or username autocomplete hints, fields whose name, id, label, or placeholder suggests secrets or identifiers, and anything inside `[data-private]`, `[data-sensitive]`, or `[data-bugreel-private]`. Omitted values become `BUGREEL_VALUE_n` placeholders in the draft and are listed under *Required configuration*.
 - Request and response bodies, request and response headers, cookies, and page storage are never read. URLs are sanitized before storage: credentials are removed, secret-looking path segments, query values, and fragment values are replaced with `REDACTED`, while SPA hash routes are preserved. Console and exception text is bounded (1,000 characters, five stack frames) and passed through conservative redaction of tokens, emails, key/value secrets, card-like numbers, and embedded URLs. Element labels used as selectors are skipped when redaction would change them.
-- Screenshots are captured only when you click **Capture screenshot**, are stored as PNG blobs, are excluded from export until you tick **Include screenshot in export**, and can be discarded at any time. Text redaction does not apply to image pixels.
+- Screenshots are captured only when you click **Capture screenshot**, are stored as PNG blobs, are excluded from export until you tick **Include screenshot in export**, and can be discarded at any time. Text redaction does not apply to image pixels, and a visible-tab screenshot includes embedded frames and any sensitive text that is on screen.
 - Deleting a session removes its record, all events, its review text, and its screenshot in one transaction.
 - Captured text is rendered as text in the panel (React escaping) and is escaped into string literals or comments in generated source. Nothing from a page is ever executed.
 
@@ -166,7 +184,7 @@ All exports are generated from one validated **schema v1 recording** (`packages/
 
 - **Markdown report** (`bugreel-<date>-<id>-report.md`): an *unverified* banner, metadata table, expected/actual/notes, ordered steps with gap and unsupported markers, selected evidence, screenshot disclosure, required configuration, and draft status. Untrusted text is escaped so it cannot inject links, images, or HTML.
 - **JSON recording** (`....recording.json`): the schema v1 document above.
-- **Playwright draft** (`....spec.ts`): a `@playwright/test` file whose header says `STATUS: UNVERIFIED DRAFT`. Steps are `test.step` calls using Playwright locators. Omitted values are read with `requiredValue('BUGREEL_VALUE_n')`, which throws until the environment variable is set. If a failure signature was selected, a `waitForResponse`, `requestfailed`, `console`, or `pageerror` assertion checks that the recorded failure occurs again; it passes **while the bug is present**. Otherwise the draft ends with a `TODO` comment quoting the reported behaviour. Gaps insert `test.fixme` and `RECORDING GAP` comments; unsupported steps become comments. The viewport recorded at start is applied with `test.use`.
+- **Playwright draft** (`....spec.ts`): a `@playwright/test` file whose header says `STATUS: UNVERIFIED DRAFT`. Steps are `test.step` calls using Playwright locators. Omitted values are read with `requiredValue('BUGREEL_VALUE_n')`, which throws until the environment variable is set. If a failure signature was selected, a `waitForResponse`, `requestfailed`, `console`, or `pageerror` assertion checks that the recorded failure occurs again; it passes **while the bug is present**. Network signatures match the recorded **origin**, pathname, method, and (for HTTP) status, and observation starts immediately before the step that triggered the failure, so an unrelated origin serving the same path or an earlier failure cannot satisfy it. A network URL whose origin or path was redacted produces no assertion (placeholders are never executable). Console signatures listen for the recorded console type (`error` or `assert`). Otherwise the draft ends with a `TODO` comment quoting the reported behaviour. Gaps insert `test.fixme` and `RECORDING GAP` comments; unsupported steps become comments. The viewport recorded at start is applied with `test.use`.
 - **Screenshot** (`...-screenshot.png`): only when included in the export.
 
 Examples exported from the fixture site are in [`docs/extension/examples`](../../docs/extension/examples).
@@ -185,9 +203,23 @@ The extension suite uses Playwright's persistent Chromium context with `--load-e
 
 The build refuses to package source maps, TypeScript, `.env` files, or any remote script reference.
 
+`apps/extension/tests/selection.spec.ts` drives the unpinned target-selection logic (no `?tab=`: the panel follows the active tab of its window and ignores other windows) by switching tabs with `chrome.tabs.update`. That is the same code path the real side panel uses, but it is **not** proof that the toolbar icon or Chrome's side-panel surface work; those need the manual test plan below.
+
+## Demo site
+
+`npm run ext:demo` serves a deterministic, fully synthetic demo shop at <http://127.0.0.1:4180/> (also reachable as <http://localhost:4180/>, which counts as a different site for the cross-origin case). It has ordinary inputs, sensitive inputs (password, email, card number, one-time code), a checkout that returns HTTP 500 and logs `console.error`, a `console.assert` failure, an uncaught exception, a 404, a transport failure, a full-page navigation, an SPA route change, an embedded frame with its own error button, a rich-text editor, and a file input. No accounts, internal APIs, or paid services are involved. `apps/extension/tests/demo.spec.ts` records the same flows against it in CI. Override the port with `BUGREEL_DEMO_PORT`.
+
+## Browser versions
+
+- `minimum_chrome_version` is **120**. APIs used and the Chrome version that introduced them: `chrome.sidePanel` (114) and `setPanelBehavior` (116), `chrome.storage.session` (102), debugger sessions keeping the service worker alive (118), `chrome.debugger` flat sessions are not used. 120 leaves margin above all of these.
+- **Automated tests:** Playwright's bundled Chromium 153 (Playwright 1.63, build 1243), headless, on Windows 11, with `--load-extension`.
+- **Google Chrome 153.0.8010.53 (Stable, 64-bit) is installed on the development machine**, but the real toolbar and side-panel surface have **not** been manually verified in this pass because branded Chrome cannot be driven to *Load unpacked* by automation (the native file dialog cannot be scripted and the `--load-extension` flag is ignored). See [docs/extension/MANUAL_TEST_PLAN.md](../../docs/extension/MANUAL_TEST_PLAN.md) for the pending plan and how to record results.
+
 ## Related documents
 
-- [Privacy disclosure draft](../../docs/extension/PRIVACY.md)
+- [Manual test plan and status](../../docs/extension/MANUAL_TEST_PLAN.md)
+- [Privacy disclosure (finalized draft)](../../docs/extension/PRIVACY.md)
+- [Store listing text, data disclosures, and reviewer instructions](../../docs/extension/STORE_LISTING.md)
 - [Chrome Web Store submission checklist](../../docs/extension/WEB_STORE_CHECKLIST.md)
 - [Example exports](../../docs/extension/examples)
 - [Local BugReel application](../../README.md)

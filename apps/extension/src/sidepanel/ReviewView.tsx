@@ -9,7 +9,8 @@ type Evidence = (ConsoleItem | NetworkItem) & { label: string; detail: string };
 function describeEvidence(item: ConsoleItem | NetworkItem): Evidence {
   if (item.kind === 'http') return { ...item, label: `${item.method} → HTTP ${item.status}${item.statusText ? ` ${item.statusText}` : ''}`, detail: item.url };
   if (item.kind === 'transport') return { ...item, label: `${item.method} failed: ${item.error ?? 'network error'}`, detail: item.url };
-  return { ...item, label: item.kind === 'exception' ? 'Uncaught exception' : 'Console error', detail: (item as ConsoleItem).message };
+  const consoleItem = item as ConsoleItem;
+  return { ...item, label: item.kind === 'exception' ? 'Uncaught exception' : consoleItem.consoleType === 'assert' ? 'Console assertion failure' : 'Console error', detail: consoleItem.message };
 }
 
 export function ReviewView({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
@@ -98,6 +99,7 @@ export function ReviewView({ sessionId, onClose }: { sessionId: string; onClose:
         {session.interruption && <p className="notice warn" data-testid="interruption">{session.interruption.message}</p>}
         {session.notes.map(note => <p className="notice" key={note}>{note}</p>)}
         {session.counts.dropped > 0 && <p className="notice">{session.counts.dropped} additional events were not stored because a collection limit was reached.</p>}
+        {(session.counts.outOfScope ?? 0) > 0 && <p className="notice" data-testid="out-of-scope">{session.counts.outOfScope} console, exception, or network events came from embedded frames or could not be attributed to the recorded page, so they were not stored. BugReel records the main frame only.</p>}
       </section>
 
       <section className="card" aria-labelledby="describe-heading">

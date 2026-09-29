@@ -5,13 +5,13 @@
     "name": "BugReel Chrome extension",
     "version": "0.1.0"
   },
-  "exportedAt": "2026-09-27T22:03:30.101Z",
+  "exportedAt": "2026-09-28T17:35:04.507Z",
   "session": {
-    "id": "9085a05f-5a87-44c4-963c-f45fd6dfcaf5",
+    "id": "0bb0080b-81df-43ae-9c48-1c40dbf9393c",
     "status": "completed",
-    "startedAt": "2026-09-27T22:03:26.402Z",
-    "stoppedAt": "2026-09-27T22:03:29.779Z",
-    "durationMs": 3377,
+    "startedAt": "2026-09-28T17:35:00.991Z",
+    "stoppedAt": "2026-09-28T17:35:04.316Z",
+    "durationMs": 3325,
     "interruption": null,
     "typedValuesRecorded": false,
     "browser": "Chromium 153"
@@ -32,17 +32,17 @@
   },
   "actions": [
     {
-      "id": "54af3d2f-4076-445a-89df-b2420e870510",
-      "timestamp": "2026-09-27T22:03:26.402Z",
+      "id": "cf1e38e1-c8df-428a-91c8-dee2f8b71512",
+      "timestamp": "2026-09-28T17:35:00.991Z",
       "elapsedMs": 0,
       "type": "goto",
       "url": "http://127.0.0.1:4173/app.html",
       "label": "Open /app.html"
     },
     {
-      "id": "0795b2df-79fb-4c1a-ba71-9837cf860931",
-      "timestamp": "2026-09-27T22:03:26.541Z",
-      "elapsedMs": 139,
+      "id": "ddce5a39-5cd7-484b-9939-cb47e5d27c6c",
+      "timestamp": "2026-09-28T17:35:01.114Z",
+      "elapsedMs": 123,
       "type": "fill",
       "selector": {
         "kind": "role",
@@ -55,9 +55,9 @@
       "configKey": "BUGREEL_VALUE_1"
     },
     {
-      "id": "22575213-2737-41dc-b59c-036586679e03",
-      "timestamp": "2026-09-27T22:03:26.560Z",
-      "elapsedMs": 158,
+      "id": "d2585546-922e-45df-9c36-bc49dd2cc666",
+      "timestamp": "2026-09-28T17:35:01.130Z",
+      "elapsedMs": 139,
       "type": "fill",
       "selector": {
         "kind": "label",
@@ -69,9 +69,9 @@
       "configKey": "BUGREEL_VALUE_2"
     },
     {
-      "id": "23f0ed47-8926-4214-be4b-ce47766a3bfe",
-      "timestamp": "2026-09-27T22:03:26.560Z",
-      "elapsedMs": 158,
+      "id": "35d6b387-7b6f-42f6-8d51-8a886d3927b4",
+      "timestamp": "2026-09-28T17:35:01.131Z",
+      "elapsedMs": 140,
       "type": "select",
       "selector": {
         "kind": "role",
@@ -84,9 +84,9 @@
       "configKey": "BUGREEL_VALUE_3"
     },
     {
-      "id": "1543e81b-c6b7-4000-a3c1-449e2bc25f6d",
-      "timestamp": "2026-09-27T22:03:27.562Z",
-      "elapsedMs": 1160,
+      "id": "4b8fa338-77f5-4efe-a21f-61c4d7b1c043",
+      "timestamp": "2026-09-28T17:35:02.163Z",
+      "elapsedMs": 1172,
       "type": "click",
       "selector": {
         "kind": "role",
@@ -97,9 +97,9 @@
       "label": "Click Accept terms"
     },
     {
-      "id": "5ca1e3ea-9bfe-4144-ad72-288bcc7709c1",
-      "timestamp": "2026-09-27T22:03:28.576Z",
-      "elapsedMs": 2174,
+      "id": "ccd469af-36e9-4dd0-b4bd-3ef36e1df944",
+      "timestamp": "2026-09-28T17:35:03.189Z",
+      "elapsedMs": 2198,
       "type": "click",
       "selector": {
         "kind": "testId",
@@ -112,44 +112,45 @@
   "evidence": {
     "console": [
       {
-        "id": "06b0c2f3-3086-4fe1-afa8-7bff2fa33521",
+        "id": "13175a71-6d24-4da4-aed6-74332b553da1",
         "kind": "console",
+        "consoleType": "error",
         "message": "Checkout failed: ORDER_SUBMISSION_FAILED for user [REDACTED:email]",
-        "timestamp": "2026-09-27T22:03:28.642Z",
-        "elapsedMs": 2240,
+        "timestamp": "2026-09-28T17:35:03.246Z",
+        "elapsedMs": 2255,
         "url": "http://127.0.0.1:4173/app.html",
-        "line": 27,
+        "line": 29,
         "column": 11,
         "stack": [
-          "<anonymous> (http://127.0.0.1:4173/app.html:27:11)"
+          "<anonymous> (http://127.0.0.1:4173/app.html:29:11)"
         ]
       }
     ],
     "network": [
       {
-        "id": "6e80b6fd-e319-45f2-b7cf-c19d36da7e6b",
+        "id": "c3b3248d-f1c6-4867-a990-4e2b82afe71d",
         "kind": "http",
         "method": "POST",
         "url": "http://127.0.0.1:4173/api/fail",
         "status": 500,
         "statusText": "Internal Server Error",
         "resourceType": "Fetch",
-        "timestamp": "2026-09-27T22:03:28.640Z",
-        "elapsedMs": 2238
+        "timestamp": "2026-09-28T17:35:03.245Z",
+        "elapsedMs": 2254
       }
     ],
     "failureSignature": {
-      "evidenceId": "6e80b6fd-e319-45f2-b7cf-c19d36da7e6b",
+      "evidenceId": "c3b3248d-f1c6-4867-a990-4e2b82afe71d",
       "kind": "http"
     }
   },
   "screenshot": {
-    "fileName": "bugreel-20260927-2203-9085a05f-screenshot.png",
+    "fileName": "bugreel-20260928-1735-0bb0080b-screenshot.png",
     "mimeType": "image/png",
     "width": 1200,
     "height": 900,
-    "byteLength": 25419,
-    "capturedAt": "2026-09-27T22:03:29.635Z",
+    "byteLength": 27088,
+    "capturedAt": "2026-09-28T17:35:04.227Z",
     "pixelsRedacted": false
   },
   "unsupportedSteps": [],

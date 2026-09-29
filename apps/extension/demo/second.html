@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>BugReel demo – second page</title><link rel="stylesheet" href="/demo.css"></head>
+<body>
+  <main>
+    <h1>Second page</h1>
+    <section>
+      <p>You navigated within the same site. The recording continues here.</p>
+      <div class="row">
+        <button id="continue">Continue</button>
+        <button id="second-error">Log an error on this page</button>
+        <a href="/">Back to the shop</a>
+      </div>
+      <p id="result" role="status"></p>
+    </section>
+  </main>
+  <script>
+    document.getElementById('continue').addEventListener('click', () => { document.getElementById('result').textContent = 'Continued'; });
+    document.getElementById('second-error').addEventListener('click', () => console.error('Second page error (demo)'));
+  </script>
+</body>
+</html>

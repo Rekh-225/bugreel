@@ -77,6 +77,8 @@ test('invalid recordings are rejected by both validators', () => {
     recording => { recording.report.title = ''; },
     recording => { recording.screenshot = { fileName: '../evil.png', mimeType: 'image/png', width: 1, height: 1, byteLength: 1, capturedAt: recording.exportedAt, pixelsRedacted: false }; },
     recording => { (recording.session as { status: string }).status = 'interrupted'; },
+    recording => { (recording.evidence.console[0] as { consoleType: string }).consoleType = 'warn'; },
+    recording => { recording.evidence.console[0] = { ...recording.evidence.console[0], kind: 'exception', consoleType: 'error' }; },
   ];
   for (const mutate of mutations) {
     const copy = clone(valid) as BugReelRecording & Record<string, unknown>;
@@ -87,6 +89,13 @@ test('invalid recordings are rejected by both validators', () => {
   const dangling = clone(valid);
   dangling.evidence.failureSignature = { evidenceId: 'missing', kind: 'http' };
   expect(validateRecording(dangling).ok).toBe(false);
+});
+
+test('consoleType is optional for compatibility with earlier recordings and accepted for console items', () => {
+  const recording = clone(buildRecording(sampleInput()));
+  bothAccept(recording);
+  recording.evidence.console[0].consoleType = 'assert';
+  bothAccept(recording);
 });
 
 test('oversized collections are rejected', () => {

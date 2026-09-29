@@ -9,3 +9,8 @@ next-env.d.ts
 docs/demo-raw/
 apps/extension/dist/
 apps/extension/release/
+
+# Local working context for agent sessions; kept on this machine only.
+CONTEXT.md
+# Local-only notes (absolute paths, machine details); never commit.
+*.local.md

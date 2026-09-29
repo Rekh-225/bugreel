@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>BugReel demo shop</title>
+  <link rel="stylesheet" href="/demo.css">
+</head>
+<body>
+  <main>
+    <h1>BugReel demo shop</h1>
+    <p class="note">Synthetic demo for testing the BugReel Recorder extension. Nothing here is real: no accounts, no payments, no external services. Type anything you like; sensitive fields are marked so you can check that their values never appear in an export.</p>
+
+    <section aria-labelledby="ordinary">
+      <h2 id="ordinary">Ordinary inputs</h2>
+      <label for="name">Full name</label><input id="name" name="fullName" placeholder="e.g. Ada Example">
+      <label for="coupon">Coupon code</label><input id="coupon" name="coupon" placeholder="SAVE20">
+      <label for="size">Size</label>
+      <select id="size"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select>
+      <label><input type="checkbox" id="terms"> Accept the demo terms</label>
+      <label for="notes">Order notes</label><textarea id="notes" rows="2"></textarea>
+    </section>
+
+    <section aria-labelledby="sensitive">
+      <h2 id="sensitive">Sensitive inputs (values are never exported)</h2>
+      <label for="password">Password</label><input id="password" type="password" autocomplete="new-password">
+      <label for="email">Email</label><input id="email" type="email" autocomplete="off">
+      <label for="card">Card number</label><input id="card" name="cardNumber" inputmode="numeric" autocomplete="cc-number">
+      <label for="otp">One-time code</label><input id="otp" autocomplete="one-time-code">
+    </section>
+
+    <section aria-labelledby="failures">
+      <h2 id="failures">Controlled failures</h2>
+      <div class="row">
+        <button data-testid="checkout" id="checkout">Checkout (POST /api/checkout → HTTP 500 + console.error)</button>
+        <button id="assert">Fail an assertion (console.assert)</button>
+        <button id="throw">Throw an uncaught exception</button>
+        <button id="missing">Load a missing resource (GET /api/missing → 404)</button>
+        <button id="reset">Break the connection (GET /api/reset → transport failure)</button>
+      </div>
+      <p id="result" role="status"></p>
+    </section>
+
+    <section aria-labelledby="navigation">
+      <h2 id="navigation">Navigation</h2>
+      <div class="row">
+        <a href="/second.html">Go to the second page (full navigation)</a>
+        <button id="spa">Open the settings view (SPA route change)</button>
+        <a id="cross" href="">Leave for a different site (cross-origin: ends the recording)</a>
+      </div>
+    </section>
+
+    <section aria-labelledby="frames">
+      <h2 id="frames">Embedded frame (not recorded, but visible in screenshots)</h2>
+      <iframe src="/frame.html" title="Embedded demo frame"></iframe>
+      <div contenteditable="true" aria-label="Rich text notes" class="editor">Rich-text editor: typing here is reported as not replayable.</div>
+      <label for="file">Attachment</label><input id="file" type="file">
+    </section>
+  </main>
+  <script src="/demo.js"></script>
+</body>
+</html>

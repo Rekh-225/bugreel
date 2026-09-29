@@ -1,20 +1,13 @@
 import { createHash } from 'node:crypto';
+import { locatorSource as coreLocatorSource, quote } from '../../packages/core/src/source';
 import { CHECKOUT_PATH, FAILURE_CODE, FAILURE_MESSAGE } from './demo';
 import type { Action, Selector, Session } from './session';
 
-const quote = (value: string) => JSON.stringify(value).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 export const sourceHash = (source: string) => createHash('sha256').update(source).digest('hex');
 
 export function locatorSource(selector: Selector) {
-  switch (selector.kind) {
-    case 'testId': return `page.getByTestId(${quote(selector.value)})`;
-    case 'id': return `page.locator(${quote(`[id=${JSON.stringify(selector.value)}]`)})`;
-    case 'label': return `page.getByLabel(${quote(selector.value)}, { exact: true })`;
-    case 'placeholder': return `page.getByPlaceholder(${quote(selector.value)}, { exact: true })`;
-    case 'text': return `page.getByText(${quote(selector.value)}, { exact: true })`;
-    case 'css': return `page.locator(${quote(selector.value)})`;
-    default: throw new Error('Unsupported selector.');
-  }
+  if (selector.kind === 'role') throw new Error('Unsupported selector.');
+  return coreLocatorSource(selector, quote);
 }
 
 function actionSource(action: Action, origin: string) {

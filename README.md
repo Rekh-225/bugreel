@@ -108,6 +108,20 @@ The bundled Demo Store contains one product and a deliberately reproducible chec
 
 The failure is part of the demonstration fixture, not an accidental startup error. Recorded checkout retries are preserved in the generated scenario; reproduction assertions evaluate the final checkout outcome.
 
+### Chrome extension (first usable release)
+
+The repository also contains **BugReel Recorder**, a Manifest V3 Chrome extension that records a bug in one tab of your own browser and exports a Markdown report, a versioned JSON recording, and an editable, **unverified** Playwright draft. It is a separate capture surface: it does not replay tests and never claims a bug was reproduced.
+
+```bash
+git clone --branch feature/chrome-extension https://github.com/Rekh-225/bugreel.git   # until the branch is merged
+cd bugreel && npm ci
+npm run ext:build      # apps/extension/dist -> chrome://extensions -> Load unpacked
+npm run ext:demo       # synthetic demo site at http://127.0.0.1:4180/
+npm run test:extension
+```
+
+See [apps/extension/README.md](apps/extension/README.md) for installation, the first-use guide, supported scenarios, limitations, architecture, permissions (the `debugger` warning is explained there), the [privacy disclosure draft](docs/extension/PRIVACY.md), [example exports](docs/extension/examples), and the [Web Store checklist](docs/extension/WEB_STORE_CHECKLIST.md).
+
 ### Record your own local app (experimental)
 
 Enter a `http://localhost:<port>` or `http://127.0.0.1:<port>` URL in the **Bring your own local app** panel on the dashboard. BugReel records it exactly like the Demo Store and treats the **first HTTP 5xx response** as the failure signature. The generated test replays the recorded actions and asserts that status and error code.
@@ -174,6 +188,7 @@ The dashboard polls local API routes for updates. No database, message broker, o
 | Application and API | Next.js 16 App Router, React 19, Node.js |
 | Language | TypeScript |
 | Interface | Tailwind CSS 4 and custom CSS |
+| Chrome extension | Manifest V3, React 19 side panel, Vite build, chrome.debugger diagnostics |
 | Recording and automation | Playwright and Playwright Test |
 | Session persistence | Local JSON and artifact files |
 | Optional coding-agent integration | Devin API v3 |
@@ -276,6 +291,8 @@ Continuous integration runs the same typecheck, production build, and full Playw
 ## Repository structure
 
 ```text
+apps/extension/                        Chrome extension (service worker, capture script, side panel, tests)
+packages/core/                         Portable model, normalization, sanitization, schema, and generators
 src/
 ├── app/
 │   ├── page.tsx                       Landing and recording entry point
@@ -316,7 +333,7 @@ For environments where only visible **replay** is unavailable, set `BUGREEL_REPL
 This MVP is deliberately narrow:
 
 - Supported targets: the bundled Demo Store (default) and, experimentally, other single-tab apps served from a loopback http origin.
-- Local desktop execution, not a browser extension or packaged desktop installer.
+- Local desktop execution for recording and replay; the Chrome extension in `apps/extension` captures and exports but does not replay.
 - No arbitrary external website recording, multi-user accounts, hosted recording service, or automatic merging of fixes.
 - No video/session playback engine; evidence consists of structured events, diagnostics, and screenshots.
 

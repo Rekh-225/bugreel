@@ -16,7 +16,9 @@ export type SessionRecord = {
   viewport: { width: number; height: number } | null;
   interruption: { reason: InterruptionReason; message: string } | null;
   gaps: Gap[];
-  counts: { interactions: number; console: number; network: number; unsupported: number; dropped: number };
+  /** `dropped` counts records lost to collection limits; `outOfScope` counts diagnostics and requests that did not
+   *  belong to the selected main frame (embedded frames, unattributed contexts) and were deliberately not stored. */
+  counts: { interactions: number; console: number; network: number; unsupported: number; dropped: number; outOfScope?: number };
   notes: string[];
   hasScreenshot: boolean;
 };
@@ -63,10 +65,14 @@ export type ActiveRecording = {
   recordValues: boolean;
   startedAt: string;
   lastInteractionAt: number;
-  /** Current main-frame URL (unsanitized, kept only in session storage). */
+  /** Current main-frame URL, sanitized like every persisted URL. */
   lastUrl: string;
-  /** Main-frame URL at the most recently recorded navigation. */
-  lastRecordedUrl: string;
+  /** Session-salted SHA-256 of the current raw main-frame URL: lets resume detect a change the sanitized form hides. */
+  lastUrlDigest: string;
+  /** Digest of the raw URL at the most recently recorded navigation. */
+  lastRecordedUrlDigest: string;
+  /** Execution context id -> frame id for the tab's page contexts (bounded), used to scope diagnostics to the main frame. */
+  contexts: Record<string, string>;
 };
 
 export type PanelRequest =

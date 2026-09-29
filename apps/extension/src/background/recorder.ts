@@ -74,7 +74,10 @@ function browserLabel() {
   return match ? `Chrome ${match[1]}` : null;
 }
 
-const randomToken = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+const hex = (bytes: ArrayLike<number>) => Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+const randomToken = () => hex(crypto.getRandomValues(new Uint8Array(16)));
+/** Non-reversible, session-salted digest of a raw URL. Only digests are persisted for change detection. */
+const urlDigest = async (active: Pick<ActiveRecording, 'token'>, url: string) => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${active.token}\n${url}`))));
 
 // ------------------------------------------------------------------------------------------------
 // Commands
@@ -123,9 +126,12 @@ export function start(tabId: number, recordValues: boolean) {
       const metrics = await send<{ cssLayoutViewport?: { clientWidth: number; clientHeight: number } }>(tabId, 'Page.getLayoutMetrics').catch(() => undefined);
       const viewport = metrics?.cssLayoutViewport ? { width: Math.round(metrics.cssLayoutViewport.clientWidth), height: Math.round(metrics.cssLayoutViewport.clientHeight) } : null;
       const startUrl = sanitizeUrl(url).url;
+      const token = randomToken();
+      const digest = await urlDigest({ token }, url);
       const active: ActiveRecording = {
-        sessionId, tabId, origin, token: randomToken(), bindingName: `__bugreel_${randomToken()}`, worldName: `bugreel-${sessionId}`,
-        mainFrameId: frameTree.frame.id, status: 'recording', recordValues, startedAt, lastInteractionAt: 0, lastUrl: url, lastRecordedUrl: url,
+        sessionId, tabId, origin, token, bindingName: `__bugreel_${randomToken()}`, worldName: `bugreel-${sessionId}`,
+        mainFrameId: frameTree.frame.id, status: 'recording', recordValues, startedAt, lastInteractionAt: 0,
+        lastUrl: startUrl, lastUrlDigest: digest, lastRecordedUrlDigest: digest, contexts: {},
       };
       const session: SessionRecord = {
         id: sessionId, status: 'recording', startedAt, updatedAt: startedAt, tabId, startUrl, origin, recordValues,
@@ -233,8 +239,8 @@ export function resume() {
     });
     await evaluateInWorld(current!, 'globalThis.__bugreelCapture?.setPaused(false)').catch(() => undefined);
     // If the page changed while paused, anchor the following steps at the page where recording resumed.
-    if (current!.lastUrl !== current!.lastRecordedUrl) {
-      await storeInteraction(current!, { id: crypto.randomUUID(), sequence: 0, type: 'navigation', timestamp: now, elapsedMs: Math.max(0, Date.parse(now) - Date.parse(current!.startedAt)), url: sanitizeUrl(current!.lastUrl).url, causedByAction: false });
+    if (current!.lastUrlDigest !== current!.lastRecordedUrlDigest) {
+      await storeInteraction(current!, { id: crypto.randomUUID(), sequence: 0, type: 'navigation', timestamp: now, elapsedMs: Math.max(0, Date.parse(now) - Date.parse(current!.startedAt)), url: current!.lastUrl, causedByAction: false });
     }
     await setBadge(current!.tabId, 'recording');
   });
@@ -285,7 +291,7 @@ async function storeInteraction(active: ActiveRecording, event: RecordedEvent) {
     event.sequence = session.counts.interactions++;
     return true;
   });
-  if (event.type === 'navigation') active.lastRecordedUrl = active.lastUrl;
+  if (event.type === 'navigation') active.lastRecordedUrlDigest = active.lastUrlDigest;
   else active.lastInteractionAt = Date.now();
   if (result && result.session.counts.interactions >= MAX_INTERACTIONS) await interrupt(active, 'limit-reached', true);
   else if (result) await saveActive(active);
@@ -302,6 +308,27 @@ async function storeEvidence(active: ActiveRecording, record: EventRecord) {
 }
 
 const capturing = (active: ActiveRecording) => active.status === 'recording' || active.status === 'stopping';
+const MAX_CONTEXTS = 200;
+
+/** Remembers which frame owns an execution context. The map is persisted so it survives worker restarts. */
+function rememberContext(active: ActiveRecording, contextId: unknown, frameId: unknown) {
+  if (typeof contextId !== 'number' || typeof frameId !== 'string') return;
+  const keys = Object.keys(active.contexts);
+  if (keys.length >= MAX_CONTEXTS) delete active.contexts[keys[0]];
+  active.contexts[String(contextId)] = frameId;
+}
+
+/**
+ * Documented scope policy: console, exception, and network evidence is kept only when it can be attributed to the
+ * selected tab's main frame. Same-process child frames share the tab's debugger target, so anything from another
+ * frame, or from a context or request whose frame is unknown, is counted as out of scope and not stored.
+ */
+const inMainFrame = (active: ActiveRecording, frameId: unknown) => typeof frameId === 'string' && frameId === active.mainFrameId;
+const contextInMainFrame = (active: ActiveRecording, contextId: unknown) => contextId !== undefined && inMainFrame(active, active.contexts[String(contextId)]);
+
+async function countOutOfScope(active: ActiveRecording) {
+  await updateSession(active.sessionId, session => { session.counts.outOfScope = (session.counts.outOfScope ?? 0) + 1; }).catch(() => undefined);
+}
 /** CDP Runtime timestamps are milliseconds since the epoch. */
 const beforeStart = (active: ActiveRecording, timestamp: unknown) => typeof timestamp === 'number' && timestamp < Date.parse(active.startedAt);
 const ownContext = (active: ActiveRecording, contextId: unknown) => contextId !== undefined && (contextId === active.contextId || contextId === active.previousContextId);
@@ -349,7 +376,10 @@ async function onNavigation(active: ActiveRecording, url: string, sameDocument: 
     await interrupt(active, 'cross-origin-navigation', true, destination ? `Destination: ${destination}.` : undefined);
     return;
   }
-  active.lastUrl = url;
+  // The raw URL from the CDP event is transient; only its sanitized form and a salted digest are retained.
+  const sanitized = sanitizeUrl(url).url;
+  active.lastUrl = sanitized;
+  active.lastUrlDigest = await urlDigest(active, url);
   if (active.status === 'paused') { await saveActive(active); return; }
   let reload = false;
   let typed = false;
@@ -361,7 +391,7 @@ async function onNavigation(active: ActiveRecording, url: string, sameDocument: 
   }
   const now = Date.now();
   await storeInteraction(active, {
-    id: crypto.randomUUID(), sequence: 0, type: 'navigation', ...clockFor(active, now), url: sanitizeUrl(url).url,
+    id: crypto.randomUUID(), sequence: 0, type: 'navigation', ...clockFor(active, now), url: sanitized,
     causedByAction: !reload && !typed && now - active.lastInteractionAt < ACTION_NAVIGATION_WINDOW_MS,
     ...(reload ? { reload: true } : {}), ...(sameDocument ? { sameDocument: true } : {}),
   });
@@ -374,11 +404,21 @@ async function onCdpEvent(source: chrome.debugger.Debuggee, method: string, para
   switch (method) {
     case 'Runtime.executionContextCreated': {
       const context = params.context;
-      if (context?.name !== active.worldName || context?.auxData?.frameId !== active.mainFrameId || context.id === active.contextId) return;
-      Object.assign(active, { previousContextId: active.contextId, previousContextDoc: active.contextDoc, contextId: context.id, contextDoc: undefined, contextSwitchedAt: now });
+      rememberContext(active, context?.id, context?.auxData?.frameId);
+      if (context?.name === active.worldName && context?.auxData?.frameId === active.mainFrameId && context.id !== active.contextId) {
+        Object.assign(active, { previousContextId: active.contextId, previousContextDoc: active.contextDoc, contextId: context.id, contextDoc: undefined, contextSwitchedAt: now });
+      }
       await saveActive(active);
       return;
     }
+    case 'Runtime.executionContextDestroyed':
+      delete active.contexts[String(params.executionContextId)];
+      await saveActive(active);
+      return;
+    case 'Runtime.executionContextsCleared':
+      active.contexts = {};
+      await saveActive(active);
+      return;
     case 'Runtime.bindingCalled': return onBinding(active, params);
     case 'Page.frameNavigated': {
       const frame = params.frame;
@@ -393,6 +433,8 @@ async function onCdpEvent(source: chrome.debugger.Debuggee, method: string, para
     case 'Runtime.consoleAPICalled': {
       // Runtime.enable replays messages logged earlier in the page's lifetime; only keep those from this session.
       if (!capturing(active) || ownContext(active, params.executionContextId) || beforeStart(active, params.timestamp)) return;
+      if (params.type !== 'error' && params.type !== 'assert') return;
+      if (!contextInMainFrame(active, params.executionContextId)) return countOutOfScope(active);
       const item = consoleItem(params, crypto.randomUUID(), active.startedAt, now);
       if (item) await storeEvidence(active, { sessionId: active.sessionId, id: item.id, kind: 'console', item });
       return;
@@ -400,12 +442,16 @@ async function onCdpEvent(source: chrome.debugger.Debuggee, method: string, para
     case 'Runtime.exceptionThrown': {
       const details = params.exceptionDetails;
       if (!capturing(active) || !details || ownContext(active, details.executionContextId) || beforeStart(active, params.timestamp)) return;
+      if (!contextInMainFrame(active, details.executionContextId)) return countOutOfScope(active);
       const item = exceptionItem(details, crypto.randomUUID(), active.startedAt, now);
       await storeEvidence(active, { sessionId: active.sessionId, id: item.id, kind: 'console', item });
       return;
     }
     case 'Network.requestWillBeSent': {
       if (!capturing(active) || typeof params.requestId !== 'string' || typeof params.request?.url !== 'string' || !/^https?:/.test(params.request.url)) return;
+      // Scope is the initiating frame, not the destination: main-frame requests to other origins are kept,
+      // requests from embedded frames or without a frame id are not.
+      if (!inMainFrame(active, params.frameId)) return countOutOfScope(active);
       if (pendingRequests.size >= MAX_PENDING_REQUESTS) pendingRequests.delete(pendingRequests.keys().next().value!);
       pendingRequests.set(params.requestId, { method: normalizeMethod(params.request.method), url: params.request.url });
       return;

@@ -192,6 +192,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "kind": { "enum": ["console", "exception"] },
+        "consoleType": { "enum": ["error", "assert"], "description": "Console API that produced a console item. Absent in recordings from earlier versions, which is treated as error." },
         "message": { "type": "string", "maxLength": 1000 },
         "timestamp": { "$ref": "#/$defs/timestamp" },
         "elapsedMs": { "$ref": "#/$defs/nonNegativeInteger" },
@@ -199,7 +200,9 @@
         "line": { "$ref": "#/$defs/nonNegativeInteger" },
         "column": { "$ref": "#/$defs/nonNegativeInteger" },
         "stack": { "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 300 } }
-      }
+      },
+      "if": { "properties": { "kind": { "const": "exception" } } },
+      "then": { "not": { "required": ["consoleType"] } }
     },
     "networkItem": {
       "type": "object", "additionalProperties": false, "required": ["id", "kind", "method", "url", "timestamp", "elapsedMs"],

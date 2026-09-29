@@ -64,10 +64,11 @@ function Onboarding({ onDone }: { onDone: () => void }) {
       </ul>
       <h3>Your data</h3>
       <ul>
-        <li>Everything stays in this browser profile. BugReel makes no network requests and has no account or telemetry.</li>
-        <li>Typed text is <strong>not</strong> recorded unless you enable it for a session. Password fields are never recorded.</li>
-        <li>Request and response bodies, cookies, headers, and page storage are not collected. URLs and messages are redacted on a best-effort basis.</li>
-        <li>Screenshots are taken only when you ask, and their pixels are not redacted.</li>
+        <li>Everything stays in this browser profile. BugReel makes no network requests and has no account or telemetry. Local processing still handles your data: page interactions, URLs, console and network errors, and anything you choose to include.</li>
+        <li>Typed text is <strong>not</strong> recorded unless you enable it for a session. Password fields are never recorded: their values are never read, and neither are fields that look sensitive (email, phone, payment, identifiers).</li>
+        <li>Request and response bodies, cookies, headers, and page storage are not collected. Console and network evidence is limited to the recorded page's main frame. URLs and messages are redacted on a best-effort basis.</li>
+        <li>Screenshots are taken only when you ask. They show everything on screen, including embedded frames and sensitive text, and their pixels are not redacted; you review each one before it can be exported.</li>
+        <li>While recording, a small "BugReel recording" indicator is added to the page.</li>
       </ul>
       <button className="primary" data-testid="onboarding-done" onClick={onDone}>I understand</button>
     </section>

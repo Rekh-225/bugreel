@@ -115,9 +115,10 @@ const clock = (startedAt: string, now: number) => ({ timestamp: new Date(now).to
 
 export function consoleItem(params: { type?: string; args?: RemoteObject[]; stackTrace?: { callFrames?: CallFrame[] } }, id: string, startedAt: string, now: number): ConsoleItem | null {
   if (params.type !== 'error' && params.type !== 'assert') return null;
-  const message = redactText((params.args ?? []).slice(0, 20).map(formatRemoteObject).join(' ') || '(empty console error)');
+  // console.assert(false, ...) reports only the message arguments; Playwright's ConsoleMessage.text() does the same.
+  const message = redactText((params.args ?? []).slice(0, 20).map(formatRemoteObject).join(' ') || (params.type === 'assert' ? 'Assertion failed' : '(empty console error)'));
   const stack = frames(params.stackTrace?.callFrames);
-  return { id, kind: 'console', message, ...clock(startedAt, now), ...location(params.stackTrace?.callFrames?.[0]), ...(stack.length ? { stack } : {}) };
+  return { id, kind: 'console', consoleType: params.type, message, ...clock(startedAt, now), ...location(params.stackTrace?.callFrames?.[0]), ...(stack.length ? { stack } : {}) };
 }
 
 export function exceptionItem(details: { text?: string; exception?: RemoteObject; url?: string; lineNumber?: number; columnNumber?: number; stackTrace?: { callFrames?: CallFrame[] } }, id: string, startedAt: string, now: number): ConsoleItem {

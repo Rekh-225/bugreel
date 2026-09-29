@@ -4,13 +4,13 @@
 
 | Field | Value |
 | --- | --- |
-| Recorded | 2026-09-27T22:03:26.402Z (3 s) |
+| Recorded | 2026-09-28T17:35:00.991Z (3 s) |
 | Recording status | Completed |
 | Start URL | `http://127.0.0.1:4173/app.html` |
 | Viewport | 1200 × 900 |
 | Browser | Chromium 153 |
 | Typed values | Not recorded; placeholders are used |
-| Recording ID | `9085a05f-5a87-44c4-963c-f45fd6dfcaf5` |
+| Recording ID | `0bb0080b-81df-43ae-9c48-1c40dbf9393c` |
 
 ## Expected behaviour
 
@@ -39,16 +39,16 @@ An error banner appears and POST /api/fail returns 500.
 
 ### Console errors and exceptions
 
-- Console error at +2 s in `http://127.0.0.1:4173/app.html:27`
+- Console error (console.error) at +2 s in `http://127.0.0.1:4173/app.html:29`
 
   ```text
   Checkout failed: ORDER_SUBMISSION_FAILED for user [REDACTED:email]
-      at <anonymous> (http://127.0.0.1:4173/app.html:27:11)
+      at <anonymous> (http://127.0.0.1:4173/app.html:29:11)
   ```
 
 ## Screenshot
 
-`bugreel-20260927-2203-9085a05f-screenshot.png` (1200 × 900, captured 2026-09-27T22:03:29.635Z). Screenshot pixels are not redacted.
+`bugreel-20260928-1735-0bb0080b-screenshot.png` (1200 × 900, captured 2026-09-28T17:35:04.227Z). Screenshot pixels are not redacted.
 
 ## Required configuration
 

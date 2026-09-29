@@ -19,7 +19,9 @@ const OMISSIONS = ['password', 'sensitive', 'not-recorded'] as const;
 const EVIDENCE_KINDS = ['console', 'exception', 'http', 'transport'] as const;
 const CONFIG_REASONS = ['password', 'sensitive', 'not-recorded', 'redacted-url'] as const;
 
-export type ConsoleItem = { id: string; kind: 'console' | 'exception'; message: string; timestamp: string; elapsedMs: number; url?: string; line?: number; column?: number; stack?: string[] };
+/** `consoleType` records which console API produced a `console` item. Recordings written before it existed omit
+ *  it and are deliberately treated as `console.error`, which was the only type those versions recorded. */
+export type ConsoleItem = { id: string; kind: 'console' | 'exception'; consoleType?: 'error' | 'assert'; message: string; timestamp: string; elapsedMs: number; url?: string; line?: number; column?: number; stack?: string[] };
 export type NetworkItem = { id: string; kind: 'http' | 'transport'; method: string; url: string; status?: number; statusText?: string; error?: string; resourceType?: string; timestamp: string; elapsedMs: number };
 export type UnsupportedStep = { id: string; reason: UnsupportedReason; description: string; timestamp: string; elapsedMs: number; url?: string };
 export type Gap = { id: string; reason: 'paused'; startedAt: string; endedAt: string | null; startElapsedMs: number; endElapsedMs: number | null };
@@ -159,9 +161,13 @@ export function validateRecording(input: unknown): { ok: true; recording: BugRee
   const evidenceIds = new Map<string, string>();
   if (v.object(input.evidence, '$.evidence', ['console', 'network', 'failureSignature'])) {
     v.array(input.evidence.console, '$.evidence.console', LIMITS.console, (entry, path) => {
-      if (!v.object(entry, path, ['id', 'kind', 'message', 'timestamp', 'elapsedMs'], ['url', 'line', 'column', 'stack'])) return;
+      if (!v.object(entry, path, ['id', 'kind', 'message', 'timestamp', 'elapsedMs'], ['consoleType', 'url', 'line', 'column', 'stack'])) return;
       if (v.string(entry.id, `${path}.id`, 64, 1, ID)) evidenceIds.set(entry.id as string, entry.kind as string);
       v.oneOf(entry.kind, `${path}.kind`, ['console', 'exception']);
+      if ('consoleType' in entry) {
+        v.oneOf(entry.consoleType, `${path}.consoleType`, ['error', 'assert']);
+        if (entry.kind !== 'console') v.fail(`${path}.consoleType`, 'is only valid for console items');
+      }
       v.string(entry.message, `${path}.message`, LIMITS.message);
       v.string(entry.timestamp, `${path}.timestamp`, 40, 1, ISO);
       v.integer(entry.elapsedMs, `${path}.elapsedMs`, 0);
@@ -270,6 +276,25 @@ export function signatureText(message: string) {
   return best.length >= MIN_SIGNATURE_TEXT ? best : null;
 }
 
+/**
+ * Origin and pathname a network failure assertion must match. Redacted placeholders are never treated as
+ * executable values, so a URL whose origin or path was redacted yields no target.
+ */
+export function networkSignatureTarget(url: string): { origin: string; pathname: string } | null {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return null; }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  if (/REDACTED|\[truncated\]/.test(`${parsed.origin}${parsed.pathname}`)) return null;
+  return { origin: parsed.origin, pathname: parsed.pathname };
+}
+
+/** The recorded action most likely to have triggered a piece of evidence: the last one that started before it. */
+export function triggerActionIndex(actions: { elapsedMs: number }[], elapsedMs: number) {
+  let index = -1;
+  actions.forEach((action, position) => { if (action.elapsedMs <= elapsedMs) index = position; });
+  return index;
+}
+
 export function buildRecording(input: RecordingInput): BugReelRecording {
   const { session, review } = input;
   const excluded = new Set(review.excludedActionIds);
@@ -312,7 +337,7 @@ export function buildRecording(input: RecordingInput): BugReelRecording {
   let assertion: 'failure-signature' | 'none' = 'none';
   if (failureItem) {
     if ((failureItem.kind === 'console' || failureItem.kind === 'exception') && !signatureText(failureItem.message)) notes.push('The selected console evidence is too redacted to assert on. Add an assertion manually.');
-    else if ((failureItem.kind === 'http' || failureItem.kind === 'transport') && !/^https?:\/\//.test(failureItem.url)) notes.push('The selected network evidence has no http(s) URL to assert on. Add an assertion manually.');
+    else if ((failureItem.kind === 'http' || failureItem.kind === 'transport') && !networkSignatureTarget(failureItem.url)) notes.push('The selected network evidence has no usable http(s) URL to assert on (its path may contain redacted values, which are not executable). Add an assertion manually.');
     else assertion = 'failure-signature';
   } else notes.push('No failure evidence was selected, so the draft contains no assertion. Add one that checks the reported actual behaviour.');
   if (assertion === 'failure-signature') notes.push('The generated assertion checks that the selected failure still occurs. It passes while the bug is present; it is not a fix verification.');

@@ -211,11 +211,13 @@ function main(config: Config) {
   let clickedSubmitter: Element | null = null;
   let lastInput: HTMLInputElement | HTMLTextAreaElement | null = null;
   const reported = new WeakMap<Element, number>();
-  // Last value reported per field, kept only inside the page, so a blur-time change event does not duplicate a flushed edit.
-  const reportedValue = new WeakMap<Element, string>();
+  // Fields edited since their last report. Deduplication uses this flag, never the field's value, so
+  // password, sensitive, and not-recorded fields are never read (not even to compare or hash them).
+  const dirty = new WeakSet<Element>();
+  const capturing = () => active && !paused;
 
   function send(payload: Record<string, unknown>) {
-    if (!active || paused) return;
+    if (!capturing()) return;
     try { emit(JSON.stringify({ v: 1, sessionId: config.sessionId, token: config.token, doc, seq: sequence++, ts: Date.now(), url: location.href, ...payload })); } catch { /* binding removed after stop */ }
   }
   function unsupported(reason: string, description: string, element?: Element) {
@@ -226,18 +228,25 @@ function main(config: Config) {
     }
     send({ kind: 'unsupported', reason, description: plain(description, 200) });
   }
+  /** The capture policy is decided from element metadata before any value access. */
+  function policy(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): ValueOmission | null {
+    return sensitivity(element) ?? (config.recordValues ? null : 'not-recorded');
+  }
+  /** Reads `value` only when the policy says the value will be transmitted. Callers must check capturing() first. */
   function valuePayload(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) {
-    const omitted = sensitivity(element) ?? (config.recordValues ? null : 'not-recorded');
-    return omitted ? { valueOmitted: omitted } : { value: element.value.slice(0, 2000) };
+    const omitted = policy(element);
+    return omitted ? { valueOmitted: omitted } : { value: String(element.value).slice(0, 2000) };
   }
   function flushPending() {
     if (!pending) return;
     const { element, timer } = pending;
     clearTimeout(timer);
     pending = null;
+    // Nothing is read or reported while paused or after stop; the edit stays unreported (a recording gap).
+    if (!capturing()) { dirty.delete(element); return; }
     const described = describe(element);
+    dirty.delete(element);
     if (!described.selector) return unsupported('no-selector', `Typing in ${shortName(element)} could not be given a reliable selector`, element);
-    reportedValue.set(element, element.value);
     send({ kind: 'interaction', type: 'input', ...described, ...valuePayload(element) });
   }
 
@@ -263,17 +272,19 @@ function main(config: Config) {
   }, options);
 
   document.addEventListener('input', event => {
-    if (!event.isTrusted) return;
+    if (!event.isTrusted || !capturing()) return;
     const target = event.target;
     if (target instanceof HTMLElement && target.isContentEditable) return unsupported('contenteditable', `Typing in the rich-text editor ${shortName(target)} cannot be replayed`, target);
     if (!isTextField(target)) return;
     lastInput = target;
+    dirty.add(target);
     if (pending && pending.element !== target) flushPending();
     if (pending) clearTimeout(pending.timer);
     pending = { element: target, timer: setTimeout(flushPending, 600) as unknown as number };
   }, options);
 
   document.addEventListener('change', event => {
+    if (!capturing()) return;
     const target = event.target;
     if (target instanceof HTMLInputElement && inputType(target) === 'file') return unsupported('file-input', `File selection in ${shortName(target)} cannot be recorded`, target);
     // Select changes are accepted even when synthetic: automation tools set the value and dispatch the event
@@ -287,10 +298,11 @@ function main(config: Config) {
     }
     if (!isTextField(target)) return;
     if (pending?.element === target) return flushPending();
-    if (reportedValue.get(target) === target.value) return;
+    // A blur-time change after the debounced flush already reported this edit carries nothing new.
+    if (!dirty.has(target)) return;
+    dirty.delete(target);
     const described = describe(target);
     if (!described.selector) return;
-    reportedValue.set(target, target.value);
     send({ kind: 'interaction', type: 'change', ...described, ...valuePayload(target) });
   }, options);
 
@@ -341,8 +353,10 @@ function main(config: Config) {
   indicator.update(paused);
   scope.__bugreelCapture = {
     sessionId: config.sessionId,
-    setPaused(next) { if (!next) pending = null; else flushPending(); paused = next; indicator.update(paused); },
+    // Pausing flushes the current edit first (still recording); resuming discards anything queued meanwhile.
+    setPaused(next) { if (next) flushPending(); else if (pending) { clearTimeout(pending.timer); pending = null; } paused = next; indicator.update(paused); },
     flush: flushPending,
+    // Stop flushes the current edit while still recording, then nothing is read or sent again.
     shutdown() { flushPending(); active = false; listeners.abort(); indicator.remove(); if (scope.__bugreelCapture?.sessionId === config.sessionId) delete scope.__bugreelCapture; },
     hideIndicator: hidden => indicator.hide(hidden),
   };

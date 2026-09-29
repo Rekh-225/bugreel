@@ -113,8 +113,10 @@ The failure is part of the demonstration fixture, not an accidental startup erro
 The repository also contains **BugReel Recorder**, a Manifest V3 Chrome extension that records a bug in one tab of your own browser and exports a Markdown report, a versioned JSON recording, and an editable, **unverified** Playwright draft. It is a separate capture surface: it does not replay tests and never claims a bug was reproduced.
 
 ```bash
-npm ci
+git clone --branch feature/chrome-extension https://github.com/Rekh-225/bugreel.git   # until the branch is merged
+cd bugreel && npm ci
 npm run ext:build      # apps/extension/dist -> chrome://extensions -> Load unpacked
+npm run ext:demo       # synthetic demo site at http://127.0.0.1:4180/
 npm run test:extension
 ```
 
